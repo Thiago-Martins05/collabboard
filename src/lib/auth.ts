@@ -19,7 +19,6 @@ export const {
       clientSecret: process.env.GITHUB_SECRET!,
       allowDangerousEmailAccountLinking: true,
     }),
-    // opcional: se não for usar agora, deixe comentado
     Google({
       clientId: process.env.GOOGLE_ID || "",
       clientSecret: process.env.GOOGLE_SECRET || "",
