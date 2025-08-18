@@ -1,4 +1,3 @@
-// src/components/layout/header.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Search, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
-export function Header() {
+export function Header({ orgName }: { orgName?: string }) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background px-4">
+      {/* Nome da organização / logo */}
       <Link href="/dashboard" className="font-semibold">
-        CollabBoard
+        {orgName ?? "CollabBoard"}
       </Link>
 
       <div className="ml-auto flex items-center gap-2">

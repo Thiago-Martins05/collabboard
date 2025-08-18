@@ -74,3 +74,14 @@ export async function ensureDefaultOrganization(params: {
 
   return org.id;
 }
+
+export async function getUserPrimaryOrganization(userId: string) {
+  const membership = await db.membership.findFirst({
+    where: { userId },
+    select: {
+      organization: { select: { id: true, name: true, slug: true } },
+    },
+    orderBy: { role: "asc" }, // OWNER > ADMIN > MEMBER (em ordem alfabética aqui funciona)
+  });
+  return membership?.organization ?? null;
+}
