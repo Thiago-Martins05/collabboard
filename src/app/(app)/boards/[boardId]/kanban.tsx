@@ -5,11 +5,12 @@ import {
   DndContext,
   PointerSensor,
   DragEndEvent,
+  DragStartEvent,
   useSensor,
   useSensors,
   closestCorners,
+  DragOverlay,
 } from "@dnd-kit/core";
-// se preferir, pode trocar por closestCenter
 import {
   SortableContext,
   rectSortingStrategy,
@@ -76,6 +77,10 @@ export function Kanban({
   const [columns, setColumns] = useState<Column[]>([]);
   const [, startTransition] = useTransition();
 
+  // estados para overlay e highlight
+  const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [overColumnId, setOverColumnId] = useState<string | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
@@ -86,8 +91,19 @@ export function Kanban({
 
   const columnIds = useMemo(() => columns.map((c) => colKey(c.id)), [columns]);
 
+  function onDragStart(event: DragStartEvent) {
+    const id = String(event.active.id);
+    if (!isCardKey(id)) return;
+    const cardId = parseCardId(id);
+    const col = columns.find((c) => c.cards.some((cd) => cd.id === cardId));
+    const card = col?.cards.find((cd) => cd.id === cardId) || null;
+    setActiveCard(card);
+  }
+
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    setOverColumnId(null);
+    setActiveCard(null);
     if (!over) return;
 
     const activeId = String(active.id);
@@ -118,6 +134,7 @@ export function Kanban({
     // Reordenar/mover cards
     if (isCardKey(activeId)) {
       const cardId = parseCardId(activeId);
+
       const fromCol = columns.find((c) =>
         c.cards.some((card) => card.id === cardId)
       );
@@ -180,6 +197,18 @@ export function Kanban({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragOver={(e) => {
+        const overId = e.over ? String(e.over.id) : null;
+        if (!overId) return setOverColumnId(null);
+        if (isColKey(overId)) return setOverColumnId(parseColId(overId));
+        if (isCardKey(overId)) {
+          const cid = parseCardId(overId);
+          const col = columns.find((c) => c.cards.some((cd) => cd.id === cid));
+          return setOverColumnId(col?.id || null);
+        }
+        setOverColumnId(null);
+      }}
       onDragEnd={onDragEnd}
     >
       <SortableContext items={columnIds} strategy={rectSortingStrategy}>
@@ -190,17 +219,14 @@ export function Kanban({
               id={col.id}
               title={col.title}
               boardId={boardId}
+              isOver={overColumnId === col.id}
             >
               <SortableContext
                 items={col.cards.map((card) => cardKey(card.id))}
                 strategy={rectSortingStrategy}
               >
                 <ul
-                  className="
-    space-y-2
-    min-h-[2.5rem]
-    transition-colors
-  "
+                  className="space-y-2 min-h-[2.5rem] transition-colors"
                   role="list"
                 >
                   {col.cards
@@ -225,6 +251,20 @@ export function Kanban({
           ))}
         </div>
       </SortableContext>
+
+      {/* Drag overlay (ghost do card) */}
+      <DragOverlay>
+        {activeCard ? (
+          <div className="rounded-md border bg-background p-3 text-sm shadow-lg">
+            <div className="font-medium">{activeCard.title}</div>
+            {activeCard.description ? (
+              <p className="mt-1 text-muted-foreground">
+                {activeCard.description}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
@@ -236,11 +276,13 @@ function SortableColumn({
   title,
   children,
   boardId,
+  isOver,
 }: {
   id: string;
   title: string;
   children: React.ReactNode;
   boardId: string;
+  isOver?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -266,12 +308,8 @@ function SortableColumn({
     <section
       ref={setNodeRef}
       style={style}
-      className="
-    w-full sm:w-[calc(50%-0.5rem)] lg:w-72
-    shrink-0 rounded-lg border bg-card/95 p-4 shadow-sm
-    outline-none focus-visible:ring-2 focus-visible:ring-ring
-    min-h-[12rem]
-  "
+      className={`w-full sm:w-[calc(50%-0.5rem)] lg:w-72 shrink-0 rounded-lg border bg-card/95 p-4 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[12rem]
+      ${isOver ? "ring-2 ring-primary/60 border-primary/50" : ""}`}
       role="group"
       aria-labelledby={`col-${id}-title`}
       tabIndex={0}
@@ -281,9 +319,9 @@ function SortableColumn({
         <h2
           id={`col-${id}-title`}
           className="
-    text-sm font-semibold tracking-tight text-foreground
-    cursor-grab active:cursor-grabbing
-  "
+            text-sm font-semibold tracking-tight text-foreground
+            cursor-grab active:cursor-grabbing
+          "
           {...attributes}
           {...listeners}
         >
@@ -380,12 +418,12 @@ function SortableCard({
       {...attributes}
       {...listeners}
       className="
-    rounded-md border bg-background p-3 text-sm
-    cursor-grab active:cursor-grabbing
-    outline-none focus-visible:ring-2 focus-visible:ring-ring
-    hover:bg-accent/30 transition-colors
-    shadow-xs min-h-[3rem]
-  "
+        rounded-md border bg-background p-3 text-sm
+        cursor-grab active:cursor-grabbing
+        outline-none focus-visible:ring-2 focus-visible:ring-ring
+        hover:bg-accent/30 transition-colors
+        shadow-xs min-h-[3rem]
+      "
       aria-roledescription="Cartão Kanban"
       aria-label={title}
       tabIndex={0}
