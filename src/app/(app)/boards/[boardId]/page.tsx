@@ -1,3 +1,4 @@
+// src/app/(app)/boards/[boardId]/page.tsx
 import { db } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { Kanban } from "./kanban";
@@ -10,10 +11,12 @@ import { Pencil } from "lucide-react";
 export default async function BoardPage({
   params,
 }: {
-  params: { boardId: string };
+  params: Promise<{ boardId: string }>;
 }) {
+  const { boardId } = await params; // ✅ aguarda params
+
   const board = await db.board.findUnique({
-    where: { id: params.boardId },
+    where: { id: boardId },
     include: { columns: { include: { cards: true } } },
   });
   if (!board) notFound();
@@ -27,12 +30,7 @@ export default async function BoardPage({
             boardId={board.id}
             initial={board.title}
             trigger={
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8"
-                aria-label="Renomear board"
-              >
+              <Button size="icon" variant="ghost" className="h-8 w-8">
                 <Pencil className="h-4 w-4" />
               </Button>
             }

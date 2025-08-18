@@ -1,41 +1,29 @@
+// src/app/(app)/dashboard/page.tsx
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { CreateBoardForm } from "./create-board-form";
-import { DeleteBoardButton } from "./delete-board-button";
-import { DashboardFilters } from "./filters";
 import { getSession } from "@/lib/session";
 import { getUserPrimaryOrganization } from "@/lib/tenant";
+import { CreateBoardForm } from "./create-board-form";
 
-type PageProps = {
-  searchParams?: {
-    q?: string;
-    order?: "createdDesc" | "createdAsc" | "titleAsc" | "titleDesc";
-  };
+type Search = {
+  q?: string;
+  order?: "createdDesc" | "createdAsc" | "titleAsc" | "titleDesc";
 };
 
-export default async function DashboardPage({ searchParams }: PageProps) {
-  // ---- sessão + org do usuário ----
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
+  const sp = await searchParams;
+  const q = (sp?.q ?? "").trim();
+  const order = (sp?.order as Search["order"]) ?? "createdDesc";
+
   const session = await getSession();
-  if (!session?.user?.id) {
-    // Se sua rota /dashboard já estiver protegida por middleware, isso nunca acontece.
-    // Se preferir, redirecione para /sign-in aqui.
-    return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">Acesso restrito</h1>
-        <p className="text-muted-foreground">
-          Faça login para acessar o dashboard.
-        </p>
-      </div>
-    );
-  }
+  if (!session?.user?.id) return null; // Já deve estar protegido por middleware
 
   const org = await getUserPrimaryOrganization(session.user.id as string);
 
-  // ---- filtros vindos da URL ----
-  const q = (searchParams?.q ?? "").trim();
-  const order = searchParams?.order ?? "createdDesc";
-
-  // ---- ordenação ----
   const orderBy =
     order === "createdAsc"
       ? { createdAt: "asc" as const }
@@ -43,39 +31,29 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       ? { title: "asc" as const }
       : order === "titleDesc"
       ? { title: "desc" as const }
-      : { createdAt: "desc" as const }; // createdDesc (default)
-
-  // ---- query de boards ----
-  const whereClause = {
-    ...(org?.id ? { organizationId: org.id } : {}),
-    ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
-  };
+      : { createdAt: "desc" as const };
 
   const boards = await db.board.findMany({
-    where: whereClause,
-    include: { columns: true },
+    where: {
+      ...(org?.id ? { organizationId: org.id } : {}),
+      ...(q ? { title: { contains: q, mode: "insensitive" as const } } : {}),
+    },
     orderBy,
+    include: { columns: true },
   });
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        {/* Caso queira exibir a org ativa */}
         {org?.name && (
-          <span className="text-sm text-muted-foreground">
-            Organização: {org.name}
-          </span>
+          <span className="text-sm text-muted-foreground">Org: {org.name}</span>
         )}
       </div>
 
-      {/* filtros (busca + ordenação) */}
-      <DashboardFilters />
-
-      {/* criar board */}
+      {/* (se estiver usando os filtros e o botão de criar, mantenha-os aqui) */}
       <CreateBoardForm />
 
-      {/* listagem / empty state */}
       {boards.length === 0 ? (
         <div className="rounded-lg border bg-card p-6 text-center">
           <p className="text-sm text-muted-foreground">
@@ -86,22 +64,18 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {boards.map((board) => (
+          {boards.map((b) => (
             <div
-              key={board.id}
+              key={b.id}
               className="flex items-center justify-between rounded border bg-card p-4 shadow-sm"
             >
-              <Link
-                href={`/boards/${board.id}`}
-                className="flex-1 hover:underline"
-              >
-                <div className="font-semibold">{board.title}</div>
+              <Link href={`/boards/${b.id}`} className="flex-1 hover:underline">
+                <div className="font-semibold">{b.title}</div>
                 <p className="text-sm text-muted-foreground">
-                  {board.columns.length} colunas
+                  {b.columns.length} colunas
                 </p>
               </Link>
-
-              <DeleteBoardButton boardId={board.id} boardTitle={board.title} />
+              {/* seu botão de excluir, se tiver */}
             </div>
           ))}
         </div>
