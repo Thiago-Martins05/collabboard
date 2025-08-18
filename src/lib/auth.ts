@@ -1,39 +1,34 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthOptions } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET,
   adapter: PrismaAdapter(db),
   session: { strategy: "jwt" },
+  pages: { signIn: "/sign-in" },
   providers: [
     GitHub({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
-      allowDangerousEmailAccountLinking: true,
     }),
     Google({
       clientId: process.env.GOOGLE_ID || "",
       clientSecret: process.env.GOOGLE_SECRET || "",
-      allowDangerousEmailAccountLinking: true,
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.userId = user.id;
+      if (user) (token as any).userId = (user as any).id;
       return token;
     },
     async session({ session, token }) {
-      if (token?.userId) (session as any).user.id = token.userId;
+      if ((token as any).userId)
+        (session as any).user.id = (token as any).userId;
       return session;
     },
   },
-  trustHost: true,
-});
+};
+export default authOptions;
