@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export function DeleteBoardButton({
   boardId,
@@ -32,6 +33,7 @@ export function DeleteBoardButton({
     error: undefined as string | undefined,
   });
   const router = useRouter();
+  const [isPending, start] = useTransition();
 
   useEffect(() => {
     if (state?.ok) {
@@ -49,11 +51,11 @@ export function DeleteBoardButton({
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8"
+          className="h-8 w-8 cursor-pointer"
           onClick={(e) => e.stopPropagation()}
           aria-label={`Excluir board ${boardTitle}`}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-4 w-4 cursor-pointer" />
         </Button>
       </AlertDialogTrigger>
 
@@ -62,12 +64,18 @@ export function DeleteBoardButton({
           <AlertDialogTitle>Excluir “{boardTitle}”?</AlertDialogTitle>
         </AlertDialogHeader>
 
-        {/* Form que dispara a server action */}
-        <form action={formAction}>
+        <form action={(fd) => start(() => formAction(fd))}>
           <input type="hidden" name="boardId" value={boardId} />
           <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction type="submit">Excluir</AlertDialogAction>
+            <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              type="submit"
+              disabled={isPending}
+              className="inline-flex items-center gap-2"
+            >
+              {isPending ? <Spinner /> : null}
+              {isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </form>
       </AlertDialogContent>

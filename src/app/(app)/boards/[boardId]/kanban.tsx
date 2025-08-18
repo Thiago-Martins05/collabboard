@@ -9,6 +9,7 @@ import {
   useSensors,
   closestCorners,
 } from "@dnd-kit/core";
+// se preferir, pode trocar por closestCenter
 import {
   SortableContext,
   rectSortingStrategy,
@@ -16,14 +17,12 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
 import { CreateCardForm } from "./create-card-form";
 import { reorderColumns, reorderCards } from "./dnd-actions";
-import {
-  deleteCard,
-  deleteColumn,
-  renameColumn,
-  editCard,
-} from "./manage-actions";
+import { deleteCard, deleteColumn, editCard } from "./manage-actions";
+import { RenameColumnDialog } from "./rename-column-dialog";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,9 +43,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
 import { Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { RenameColumnDialog } from "./rename-column-dialog";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { editCardSchema, type EditCardInput } from "./edit-schema";
@@ -75,6 +75,7 @@ export function Kanban({
 }) {
   const [columns, setColumns] = useState<Column[]>([]);
   const [, startTransition] = useTransition();
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
@@ -117,13 +118,12 @@ export function Kanban({
     // Reordenar/mover cards
     if (isCardKey(activeId)) {
       const cardId = parseCardId(activeId);
-
       const fromCol = columns.find((c) =>
         c.cards.some((card) => card.id === cardId)
       );
       if (!fromCol) return;
 
-      let toCol: Column | undefined = undefined;
+      let toCol: Column | undefined;
       if (isCardKey(overId)) {
         const overCardId = parseCardId(overId);
         toCol = columns.find((c) =>
@@ -183,7 +183,7 @@ export function Kanban({
       onDragEnd={onDragEnd}
     >
       <SortableContext items={columnIds} strategy={rectSortingStrategy}>
-        <div className="flex flex-wrap gap-4 pb-2">
+        <div className="flex flex-wrap gap-4 pb-6 pt-1">
           {columns.map((col) => (
             <SortableColumn
               key={col.id}
@@ -195,19 +195,27 @@ export function Kanban({
                 items={col.cards.map((card) => cardKey(card.id))}
                 strategy={rectSortingStrategy}
               >
-                <div className="space-y-2">
+                <ul
+                  className="
+    space-y-2
+    min-h-[2.5rem]
+    transition-colors
+  "
+                  role="list"
+                >
                   {col.cards
                     .sort((a, b) => a.index - b.index)
                     .map((card) => (
-                      <SortableCard
-                        key={card.id}
-                        id={card.id}
-                        title={card.title}
-                        description={card.description}
-                        boardId={boardId}
-                      />
+                      <li key={card.id}>
+                        <SortableCard
+                          id={card.id}
+                          title={card.title}
+                          description={card.description}
+                          boardId={boardId}
+                        />
+                      </li>
                     ))}
-                </div>
+                </ul>
               </SortableContext>
 
               <div className="mt-4">
@@ -221,7 +229,8 @@ export function Kanban({
   );
 }
 
-/* ====== Column ====== */
+/* ================= Column ================= */
+
 function SortableColumn({
   id,
   title,
@@ -254,15 +263,27 @@ function SortableColumn({
   }
 
   return (
-    <div
+    <section
       ref={setNodeRef}
       style={style}
-      className="w-72 shrink-0 rounded-lg border bg-card p-4 shadow-sm"
+      className="
+    w-full sm:w-[calc(50%-0.5rem)] lg:w-72
+    shrink-0 rounded-lg border bg-card/95 p-4 shadow-sm
+    outline-none focus-visible:ring-2 focus-visible:ring-ring
+    min-h-[12rem]
+  "
+      role="group"
+      aria-labelledby={`col-${id}-title`}
+      tabIndex={0}
     >
       <div className="mb-3 flex items-center justify-between select-none">
-        {/* drag handle apenas no título */}
+        {/* drag handle no título */}
         <h2
-          className="text-sm font-medium text-muted-foreground cursor-grab active:cursor-grabbing"
+          id={`col-${id}-title`}
+          className="
+    text-sm font-semibold tracking-tight text-foreground
+    cursor-grab active:cursor-grabbing
+  "
           {...attributes}
           {...listeners}
         >
@@ -315,11 +336,12 @@ function SortableColumn({
       </div>
 
       {children}
-    </div>
+    </section>
   );
 }
 
-/* ====== Card ====== */
+/* ================= Card ================= */
+
 function SortableCard({
   id,
   title,
@@ -352,16 +374,25 @@ function SortableCard({
   }
 
   return (
-    <div
+    <article
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="rounded-md border bg-background p-3 text-sm cursor-grab active:cursor-grabbing"
+      className="
+    rounded-md border bg-background p-3 text-sm
+    cursor-grab active:cursor-grabbing
+    outline-none focus-visible:ring-2 focus-visible:ring-ring
+    hover:bg-accent/30 transition-colors
+    shadow-xs min-h-[3rem]
+  "
+      aria-roledescription="Cartão Kanban"
+      aria-label={title}
+      tabIndex={0}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-medium">{title}</div>
+          <h3 className="font-medium leading-tight">{title}</h3>
           {description && (
             <p className="mt-1 text-muted-foreground">{description}</p>
           )}
@@ -417,7 +448,7 @@ function SortableCard({
           </AlertDialog>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 

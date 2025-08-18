@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getUserPrimaryOrganization } from "@/lib/tenant";
 import { CreateBoardForm } from "./create-board-form";
+import { DeleteBoardButton } from "./delete-board-button";
 
 type Search = {
   q?: string;
@@ -64,18 +65,22 @@ export default async function DashboardPage({
         </div>
       ) : (
         <div className="space-y-3">
-          {boards.map((b) => (
+          {boards.map((board) => (
             <div
-              key={b.id}
+              key={board.id}
               className="flex items-center justify-between rounded border bg-card p-4 shadow-sm"
             >
-              <Link href={`/boards/${b.id}`} className="flex-1 hover:underline">
-                <div className="font-semibold">{b.title}</div>
+              <Link
+                href={`/boards/${board.id}`}
+                className="flex-1 hover:underline"
+              >
+                <div className="font-semibold">{board.title}</div>
                 <p className="text-sm text-muted-foreground">
-                  {b.columns.length} colunas
+                  {board.columns.length} colunas
                 </p>
               </Link>
-              {/* seu botão de excluir, se tiver */}
+
+              <DeleteBoardButton boardId={board.id} boardTitle={board.title} />
             </div>
           ))}
         </div>
