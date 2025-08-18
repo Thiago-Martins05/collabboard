@@ -15,7 +15,7 @@ export function Sidebar() {
       </div>
 
       <nav className="p-2">
-        <ul className="space-y-1">
+        <ul className="space-y-5">
           {mainNav.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (

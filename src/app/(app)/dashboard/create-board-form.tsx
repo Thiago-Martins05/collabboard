@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormEvent } from "react";
+import { Separator } from "@radix-ui/react-select";
 
 export function CreateBoardForm() {
   const [state, formAction] = useFormState(createBoard, { ok: false });
@@ -26,13 +27,14 @@ export function CreateBoardForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="title">Board name</Label>
+    <form onSubmit={handleSubmit} className="space-y-4 ">
+      <div className="space-y-2 flex flex-col gap-5">
+        <Label htmlFor="title">Nome da Tarefa</Label>
         <Input
           id="title"
           type="text"
-          placeholder="Ex: Sprint atual"
+          placeholder="Digite o nome da tarefa.."
+          className=" flex w-full"
           {...form.register("title")}
         />
         {form.formState.errors.title && (
@@ -43,8 +45,10 @@ export function CreateBoardForm() {
       </div>
 
       {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-
-      <Button type="submit">Criar board</Button>
+      <Separator />
+      <Button type="submit" className="">
+        Criar tarefa
+      </Button>
     </form>
   );
 }

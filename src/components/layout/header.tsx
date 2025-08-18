@@ -9,7 +9,7 @@ import { signOut } from "next-auth/react";
 
 export function Header({ orgName }: { orgName?: string }) {
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background px-4">
+    <header className="sticky top-0 z-40 flex h-14 items-center  border-b bg-background px-4 justify-around gap-20">
       {/* Nome da organização / logo */}
       <Link href="/dashboard" className="font-semibold">
         {orgName ?? "CollabBoard"}

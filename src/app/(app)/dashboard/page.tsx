@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { CreateBoardForm } from "./create-board-form";
 import { getUserPrimaryOrganization } from "@/lib/tenant";
 import Link from "next/link";
+import { Separator } from "@radix-ui/react-select";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -22,11 +23,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h1 className="text-2xl font-bold ">Lista de Tarefas</h1>
 
       <CreateBoardForm />
 
-      <div className="space-y-3">
+      <div className="space-y-3 flex flex-col gap-4">
+        <Separator />
         {boards.map((board) => (
           <Link
             key={board.id}
