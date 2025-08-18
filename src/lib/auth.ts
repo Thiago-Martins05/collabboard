@@ -3,6 +3,7 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
+import { ensureDefaultOrganization } from "@/lib/tenant";
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.AUTH_SECRET,
@@ -20,15 +21,59 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      try {
+        await ensureDefaultOrganization({
+          userId: user.id,
+          displayName: user.name,
+          email: user.email,
+        });
+      } catch (e) {
+        console.error("ensureDefaultOrganization(signIn) failed:", e);
+      }
+      return true;
+    },
+
     async jwt({ token, user }) {
       if (user) (token as any).userId = (user as any).id;
       return token;
     },
+
     async session({ session, token }) {
       if ((token as any).userId)
         (session as any).user.id = (token as any).userId;
       return session;
     },
   },
+
+  events: {
+    // dispara na 1ª vez que o usuário é criado no banco
+    async createUser({ user }) {
+      try {
+        await ensureDefaultOrganization({
+          userId: user.id,
+          displayName: user.name,
+          email: user.email,
+        });
+      } catch (e) {
+        console.error("ensureDefaultOrganization (createUser) failed:", e);
+      }
+    },
+
+    // fallback: se por algum motivo createUser não rodar, garantimos no 1º sign-in
+    async signIn({ user, isNewUser }) {
+      if (!isNewUser) return;
+      try {
+        await ensureDefaultOrganization({
+          userId: user.id,
+          displayName: user.name,
+          email: user.email,
+        });
+      } catch (e) {
+        console.error("ensureDefaultOrganization (signIn) failed:", e);
+      }
+    },
+  },
 };
+
 export default authOptions;

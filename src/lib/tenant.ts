@@ -4,8 +4,9 @@ import { slugify, randomSuffix } from "@/lib/slug";
 /**
  * Garante que o usuário tenha uma organização e membership.
  * Se não houver, cria uma org "padrão" e atribui o usuário como OWNER.
- * Retorna o organizationId.
+ * Retornar o organizationId.
  */
+
 export async function ensureDefaultOrganization(params: {
   userId: string;
   displayName?: string | null;
