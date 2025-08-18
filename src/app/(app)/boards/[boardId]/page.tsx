@@ -25,9 +25,14 @@ export default async function BoardPage({
           <h1 className="text-2xl font-semibold">{board.title}</h1>
           <RenameDialog
             initial={board.title}
-            onSubmit={(data) => renameBoard(board.id, data)}
+            onSubmit={(fd) => renameBoard(board.id, fd)}
             trigger={
-              <Button size="icon" variant="ghost" className="h-8 w-8">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                aria-label="Renomear board"
+              >
                 <Pencil className="h-4 w-4" />
               </Button>
             }

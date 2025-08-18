@@ -1,10 +1,10 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { renameSchema, type RenameInput } from "./edit-schema";
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -38,11 +38,12 @@ export function RenameDialog({ trigger, initial, onSubmit }: Props) {
         </DialogHeader>
 
         <form
+          className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            const data = new FormData(e.currentTarget as HTMLFormElement);
+            const fd = new FormData(e.currentTarget as HTMLFormElement);
             start(async () => {
-              const res = await onSubmit(data);
+              const res = await onSubmit(fd);
               if (!res.ok) {
                 form.setError("title", { message: res.error || "Erro" });
               } else {
@@ -50,12 +51,11 @@ export function RenameDialog({ trigger, initial, onSubmit }: Props) {
               }
             });
           }}
-          className="space-y-3"
         >
           <Input
+            autoFocus
             {...form.register("title")}
             placeholder="Novo título"
-            autoFocus
           />
           {form.formState.errors.title && (
             <p className="text-sm text-red-500">

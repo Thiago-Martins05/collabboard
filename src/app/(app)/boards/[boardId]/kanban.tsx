@@ -18,7 +18,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CreateCardForm } from "./create-card-form";
 import { reorderColumns, reorderCards } from "./dnd-actions";
-import { deleteCard, deleteColumn } from "./manage-actions";
+import {
+  deleteCard,
+  deleteColumn,
+  renameColumn,
+  editCard,
+} from "./manage-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,8 +34,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { RenameDialog } from "./rename-dialog";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { editCardSchema, type EditCardInput } from "./edit-schema";
 
 type Card = {
   id: string;
@@ -40,7 +59,6 @@ type Card = {
 };
 type Column = { id: string; title: string; index: number; cards: Card[] };
 
-/* helpers para IDs de DnD */
 const colKey = (id: string) => `col_${id}`;
 const cardKey = (id: string) => `card_${id}`;
 const isColKey = (k: string) => k.startsWith("col_");
@@ -61,7 +79,6 @@ export function Kanban({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
-  // sincroniza com dados do servidor sempre que mudar
   useEffect(() => {
     setColumns([...initialColumns].sort((a, b) => a.index - b.index));
   }, [initialColumns]);
@@ -75,7 +92,7 @@ export function Kanban({
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // 1) Reordena colunas
+    // Reordenar colunas
     if (isColKey(activeId) && isColKey(overId)) {
       const a = parseColId(activeId);
       const b = parseColId(overId);
@@ -97,17 +114,15 @@ export function Kanban({
       return;
     }
 
-    // 2) Reordena / move cards
+    // Reordenar/mover cards
     if (isCardKey(activeId)) {
       const cardId = parseCardId(activeId);
 
-      // coluna de origem
       const fromCol = columns.find((c) =>
         c.cards.some((card) => card.id === cardId)
       );
       if (!fromCol) return;
 
-      // destino pode ser sobre outro card OU sobre a coluna (container)
       let toCol: Column | undefined = undefined;
       if (isCardKey(overId)) {
         const overCardId = parseCardId(overId);
@@ -120,15 +135,12 @@ export function Kanban({
       }
       if (!toCol) return;
 
-      // cópia segura (imutabilidade)
       const next = columns.map((c) => ({ ...c, cards: [...c.cards] }));
 
-      // remove do array de origem
       const from = next.find((c) => c.id === fromCol.id)!;
       const oldIdx = from.cards.findIndex((card) => card.id === cardId);
       const [moved] = from.cards.splice(oldIdx, 1);
 
-      // índice no destino
       let newIdx: number;
       if (isCardKey(overId)) {
         const overCardId = parseCardId(overId);
@@ -140,17 +152,14 @@ export function Kanban({
         newIdx = next.find((c) => c.id === toCol!.id)!.cards.length;
       }
 
-      // insere no destino
       const dest = next.find((c) => c.id === toCol.id)!;
       dest.cards.splice(newIdx, 0, moved);
 
-      // reindexa origem e destino
       from.cards = from.cards.map((card, i) => ({ ...card, index: i }));
       dest.cards = dest.cards.map((card, i) => ({ ...card, index: i }));
 
       setColumns(next);
 
-      // persiste apenas alterações das duas colunas
       const updates = [
         ...from.cards.map((card) => ({
           id: card.id,
@@ -173,9 +182,7 @@ export function Kanban({
       collisionDetection={closestCorners}
       onDragEnd={onDragEnd}
     >
-      {/* contexto de COLUNAS */}
       <SortableContext items={columnIds} strategy={rectSortingStrategy}>
-        {/* quebra de linha, sem scroll horizontal */}
         <div className="flex flex-wrap gap-4 pb-2">
           {columns.map((col) => (
             <SortableColumn
@@ -184,7 +191,6 @@ export function Kanban({
               title={col.title}
               boardId={boardId}
             >
-              {/* contexto de CARDS da coluna */}
               <SortableContext
                 items={col.cards.map((card) => cardKey(card.id))}
                 strategy={rectSortingStrategy}
@@ -204,7 +210,6 @@ export function Kanban({
                 </div>
               </SortableContext>
 
-              {/* novo card nesta coluna */}
               <div className="mt-4">
                 <CreateCardForm boardId={boardId} columnId={col.id} />
               </div>
@@ -216,8 +221,7 @@ export function Kanban({
   );
 }
 
-/* ================= Sortables ================= */
-
+/* ====== Column ====== */
 function SortableColumn({
   id,
   title,
@@ -256,7 +260,7 @@ function SortableColumn({
       className="w-72 shrink-0 rounded-lg border bg-card p-4 shadow-sm"
     >
       <div className="mb-3 flex items-center justify-between select-none">
-        {/* drag handle só no título */}
+        {/* drag handle apenas no título */}
         <h2
           className="text-sm font-medium text-muted-foreground cursor-grab active:cursor-grabbing"
           {...attributes}
@@ -265,34 +269,48 @@ function SortableColumn({
           {title}
         </h2>
 
-        {/* deletar coluna */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <button
-              className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Excluir coluna"
-            >
-              <Trash2 className="h-4 w-4 cursor-pointer" />
-            </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir esta coluna?</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="cursor-pointer">
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onConfirmDelete}
-                className="cursor-pointer"
+        <div className="flex items-center gap-1">
+          {/* editar coluna */}
+          <RenameDialog
+            initial={title}
+            onSubmit={(fd) => renameColumn(boardId, id, fd)}
+            trigger={
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Renomear coluna"
               >
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <Pencil className="h-4 w-4" />
+              </Button>
+            }
+          />
+
+          {/* apagar coluna */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="rounded p-1 hover:bg-accent hover:text-accent-foreground"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Excluir coluna"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir esta coluna?</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={onConfirmDelete}>
+                  Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       {children}
@@ -300,6 +318,7 @@ function SortableColumn({
   );
 }
 
+/* ====== Card ====== */
 function SortableCard({
   id,
   title,
@@ -347,37 +366,107 @@ function SortableCard({
           )}
         </div>
 
-        {/* deletar card */}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <button
-              className="shrink-0 rounded p-1 hover:bg-accent hover:text-accent-foreground cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation(); // não iniciar drag
-              }}
-              aria-label="Excluir card"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Excluir este card?</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="cursor-pointer">
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onConfirmDelete}
-                className="cursor-pointer"
+        <div className="flex items-center gap-1">
+          {/* editar card */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <button
+                className="shrink-0 rounded p-1 hover:bg-accent hover:text-accent-foreground"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Editar card"
               >
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                <Pencil className="h-4 w-4" />
+              </button>
+            </DialogTrigger>
+            <DialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <DialogTitle>Editar card</DialogTitle>
+              </DialogHeader>
+              <EditCardForm
+                boardId={boardId}
+                cardId={id}
+                defaultTitle={title}
+                defaultDescription={description || ""}
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* apagar card */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="shrink-0 rounded p-1 hover:bg-accent hover:text-accent-foreground"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Excluir card"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir este card?</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={onConfirmDelete}>
+                  Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ====== Form de edição do Card ====== */
+function EditCardForm({
+  boardId,
+  cardId,
+  defaultTitle,
+  defaultDescription,
+}: {
+  boardId: string;
+  cardId: string;
+  defaultTitle: string;
+  defaultDescription: string;
+}) {
+  const form = useForm<EditCardInput>({
+    resolver: zodResolver(editCardSchema),
+    defaultValues: { title: defaultTitle, description: defaultDescription },
+  });
+  const router = useRouter();
+  const [, start] = useTransition();
+
+  return (
+    <form
+      className="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget as HTMLFormElement);
+        start(async () => {
+          const res = await editCard(boardId, cardId, fd);
+          if (!res.ok) {
+            form.setError("title", { message: res.error || "Erro" });
+          } else {
+            router.refresh();
+          }
+        });
+      }}
+    >
+      <Input placeholder="Título" {...form.register("title")} />
+      <Textarea
+        placeholder="Descrição"
+        rows={4}
+        {...form.register("description")}
+      />
+      {form.formState.errors.title && (
+        <p className="text-sm text-red-500">
+          {form.formState.errors.title.message}
+        </p>
+      )}
+      <Button type="submit">Salvar</Button>
+    </form>
   );
 }
