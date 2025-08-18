@@ -34,7 +34,7 @@ export function CreateBoardForm() {
           id="title"
           type="text"
           placeholder="Digite o nome da tarefa.."
-          className=" flex w-full"
+          className=" flex "
           {...form.register("title")}
         />
         {form.formState.errors.title && (
