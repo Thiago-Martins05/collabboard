@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CreateBoardForm } from "./create-board-form";
 import { getUserPrimaryOrganization } from "@/lib/tenant";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -27,12 +28,16 @@ export default async function DashboardPage() {
 
       <div className="space-y-3">
         {boards.map((board) => (
-          <div key={board.id} className="rounded border p-4 bg-card shadow-sm">
+          <Link
+            key={board.id}
+            href={`/boards/${board.id}`}
+            className="block rounded border p-4 bg-card shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
             <h2 className="font-semibold">{board.title}</h2>
             <p className="text-sm text-muted-foreground">
               {board.columns.length} colunas
             </p>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
