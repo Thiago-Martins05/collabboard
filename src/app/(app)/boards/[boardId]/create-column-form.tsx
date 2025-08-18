@@ -8,7 +8,8 @@ import { createColumn } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormEvent } from "react";
+import { FormEvent, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 export function CreateColumnForm({ boardId }: { boardId: string }) {
   const [state, formAction] = useFormState(createColumn, { ok: false });
@@ -17,12 +18,18 @@ export function CreateColumnForm({ boardId }: { boardId: string }) {
     defaultValues: { title: "" },
   });
 
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     data.set("boardId", boardId);
+
     formAction(data);
     form.reset();
+
+    startTransition(() => router.refresh());
   }
 
   return (
@@ -34,7 +41,9 @@ export function CreateColumnForm({ boardId }: { boardId: string }) {
           placeholder="Ex: Backlog"
           {...form.register("title")}
         />
-        <Button type="submit">Adicionar</Button>
+        <Button type="submit" disabled={isPending}>
+          Adicionar
+        </Button>
       </div>
       {form.formState.errors.title && (
         <p className="text-sm text-red-500">

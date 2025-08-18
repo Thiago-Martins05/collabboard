@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderColumns } from "./dnd-actions";
-import { CreateCardForm } from "./create-card-form"; // ⬅️ add
+import { CreateCardForm } from "./create-card-form";
 
 type Card = {
   id: string;
@@ -33,28 +33,35 @@ export function Kanban({
   boardId: string;
   columns: Column[];
 }) {
-  const [columns, setColumns] = useState(
-    [...initialColumns].sort((a, b) => a.index - b.index)
-  );
-  const items = columns.map((c) => c.id);
+  const [columns, setColumns] = useState<Column[]>([]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
   const [, startTransition] = useTransition();
 
+  // sincroniza o state quando o servidor mandar colunas novas
+  useEffect(() => {
+    setColumns([...initialColumns].sort((a, b) => a.index - b.index));
+  }, [initialColumns]);
+
+  const items = columns.map((c) => c.id);
+
   function onDragEnd(e: any) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
-    const oldIndex = items.indexOf(active.id);
-    const newIndex = items.indexOf(over.id);
+
+    const oldIndex = items.indexOf(active.id as string);
+    const newIndex = items.indexOf(over.id as string);
     const next = arrayMove(columns, oldIndex, newIndex);
-    setColumns(next);
-    startTransition(() =>
+    setColumns(next); // otimista
+
+    // persiste no servidor
+    startTransition(() => {
       reorderColumns(
         boardId,
         next.map((c) => c.id)
-      )
-    );
+      );
+    });
   }
 
   return (
@@ -64,6 +71,7 @@ export function Kanban({
       onDragEnd={onDragEnd}
     >
       <SortableContext items={items} strategy={rectSortingStrategy}>
+        {/* quebra linha, sem barra de scroll */}
         <div className="flex flex-wrap gap-4 pb-2">
           {columns.map((col) => (
             <SortableColumn key={col.id} id={col.id} title={col.title}>
@@ -108,18 +116,20 @@ function SortableColumn({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id });
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     touchAction: "none",
   };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className="w-72 shrink-0 rounded-lg border bg-card p-4 shadow-sm"
     >
-      {/* drag handle só no header */}
+      {/* Drag handle só no header (inputs não arrastam) */}
       <div
         className="mb-3 flex items-center justify-between cursor-grab active:cursor-grabbing select-none"
         {...attributes}
@@ -127,6 +137,7 @@ function SortableColumn({
       >
         <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
       </div>
+
       {children}
     </div>
   );
