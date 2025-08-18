@@ -46,7 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { RenameDialog } from "./rename-dialog";
+import { RenameColumnDialog } from "./rename-column-dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { editCardSchema, type EditCardInput } from "./edit-schema";
@@ -271,9 +271,10 @@ function SortableColumn({
 
         <div className="flex items-center gap-1">
           {/* editar coluna */}
-          <RenameDialog
+          <RenameColumnDialog
+            boardId={boardId}
+            columnId={id}
             initial={title}
-            onSubmit={(fd) => renameColumn(boardId, id, fd)}
             trigger={
               <Button
                 size="icon"

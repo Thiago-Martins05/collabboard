@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState, FormEvent, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createColumnSchema, type CreateColumnInput } from "./schema";
@@ -8,28 +8,27 @@ import { createColumn } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormEvent, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export function CreateColumnForm({ boardId }: { boardId: string }) {
-  const [state, formAction] = useFormState(createColumn, { ok: false });
+  const [state, formAction] = useActionState(createColumn, {
+    ok: false as boolean,
+    error: undefined as string | undefined,
+  });
   const form = useForm<CreateColumnInput>({
     resolver: zodResolver(createColumnSchema),
     defaultValues: { title: "" },
   });
-
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, start] = useTransition();
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     data.set("boardId", boardId);
-
     formAction(data);
     form.reset();
-
-    startTransition(() => router.refresh());
+    start(() => router.refresh());
   }
 
   return (

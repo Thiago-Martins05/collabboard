@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState, FormEvent, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCardSchema, type CreateCardInput } from "./schema";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 export function CreateCardForm({
   boardId,
@@ -18,11 +18,16 @@ export function CreateCardForm({
   boardId: string;
   columnId: string;
 }) {
-  const [state, formAction] = useFormState(createCard, { ok: false });
+  const [state, formAction] = useActionState(createCard, {
+    ok: false as boolean,
+    error: undefined as string | undefined,
+  });
   const form = useForm<CreateCardInput>({
     resolver: zodResolver(createCardSchema),
     defaultValues: { title: "", description: "", columnId },
   });
+  const router = useRouter();
+  const [isPending, start] = useTransition();
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,6 +36,7 @@ export function CreateCardForm({
     data.set("columnId", columnId);
     formAction(data);
     form.reset({ title: "", description: "", columnId });
+    start(() => router.refresh());
   }
 
   return (
@@ -51,7 +57,7 @@ export function CreateCardForm({
         </p>
       )}
       {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-      <Button type="submit" className="cursor-pointer">
+      <Button type="submit" disabled={isPending}>
         Adicionar card
       </Button>
     </form>

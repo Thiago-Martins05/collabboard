@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState, FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createBoardSchema, CreateBoardInput } from "./schema";
@@ -8,18 +8,19 @@ import { createBoard } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormEvent } from "react";
-import { Separator } from "@radix-ui/react-select";
 
 export function CreateBoardForm() {
-  const [state, formAction] = useFormState(createBoard, { ok: false });
+  const [state, formAction] = useActionState(createBoard, {
+    ok: false as boolean,
+    error: undefined as string | undefined,
+  });
 
   const form = useForm<CreateBoardInput>({
     resolver: zodResolver(createBoardSchema),
     defaultValues: { title: "" },
   });
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     formAction(data);
@@ -27,14 +28,13 @@ export function CreateBoardForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 ">
-      <div className="space-y-2 flex flex-col gap-5">
-        <Label htmlFor="title">Nome da Tarefa</Label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="title">Board name</Label>
         <Input
           id="title"
           type="text"
-          placeholder="Digite o nome da tarefa.."
-          className=" flex "
+          placeholder="Ex: Sprint atual"
           {...form.register("title")}
         />
         {form.formState.errors.title && (
@@ -45,10 +45,8 @@ export function CreateBoardForm() {
       </div>
 
       {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-      <Separator />
-      <Button type="submit" className="">
-        Criar tarefa
-      </Button>
+
+      <Button type="submit">Criar board</Button>
     </form>
   );
 }
