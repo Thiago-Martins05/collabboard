@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DndWrapper } from "./dnd-context";
 import { SortableColumn } from "./sortable-column";
+import { rectSortingStrategy } from "@dnd-kit/sortable";
 
 interface Column {
   id: string;

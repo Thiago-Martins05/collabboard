@@ -9,8 +9,8 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  rectSortingStrategy, // ✅ horizontal support
   arrayMove,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ReactNode, useState } from "react";
 
@@ -42,7 +42,7 @@ export function DndWrapper({ items, onChange, children }: DndWrapperProps) {
         setActiveId(null);
       }}
     >
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+      <SortableContext items={items} strategy={rectSortingStrategy}>
         {children}
       </SortableContext>
     </DndContext>
