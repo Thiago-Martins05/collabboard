@@ -51,7 +51,9 @@ export function CreateCardForm({
         </p>
       )}
       {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-      <Button type="submit">Adicionar card</Button>
+      <Button type="submit" className="cursor-pointer">
+        Adicionar card
+      </Button>
     </form>
   );
 }
