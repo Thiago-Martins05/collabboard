@@ -80,6 +80,7 @@ export function Kanban({
   // estados para overlay e highlight
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -211,6 +212,16 @@ export function Kanban({
       }}
       onDragEnd={onDragEnd}
     >
+      <div className="mb-3">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filtrar cards por título ou descrição..."
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Filtrar cards"
+        />
+      </div>
       <SortableContext items={columnIds} strategy={rectSortingStrategy}>
         <div className="flex flex-wrap gap-4 pb-6 pt-1">
           {columns.map((col) => (
@@ -230,6 +241,16 @@ export function Kanban({
                   role="list"
                 >
                   {col.cards
+                    .filter((c) => {
+                      if (!query.trim()) return true;
+                      const q = query.toLowerCase();
+                      return (
+                        c.title.toLowerCase().includes(q) ||
+                        (c.description
+                          ? c.description.toLowerCase().includes(q)
+                          : false)
+                      );
+                    })
                     .sort((a, b) => a.index - b.index)
                     .map((card) => (
                       <li key={card.id}>
