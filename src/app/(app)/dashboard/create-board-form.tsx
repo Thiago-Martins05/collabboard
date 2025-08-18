@@ -34,7 +34,7 @@ export function CreateBoardForm() {
         <Input
           id="title"
           type="text"
-          placeholder="Ex: Sprint atual"
+          placeholder="Ex: Fazer tarefa ..."
           {...form.register("title")}
         />
         {form.formState.errors.title && (
@@ -46,7 +46,9 @@ export function CreateBoardForm() {
 
       {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
 
-      <Button type="submit">Criar board</Button>
+      <Button type="submit" className="cursor-pointer">
+        Criar board
+      </Button>
     </form>
   );
 }

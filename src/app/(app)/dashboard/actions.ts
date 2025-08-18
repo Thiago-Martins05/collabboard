@@ -56,3 +56,44 @@ export async function createBoard(
     return { ok: false, error: "Erro ao criar board." };
   }
 }
+
+export async function deleteBoard(_: any, formData: FormData) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+
+    const boardId = String(formData.get("boardId") || "");
+    if (!boardId) return { ok: false, error: "ID do board inválido." };
+
+    const org = await getUserPrimaryOrganization(session.user.id as string);
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const board = await db.board.findUnique({
+      where: { id: boardId },
+      select: { id: true, organizationId: true },
+    });
+    if (!board || board.organizationId !== org.id) {
+      return { ok: false, error: "Board não encontrado para este usuário." };
+    }
+
+    await db.$transaction(async (tx) => {
+      const cols = await tx.column.findMany({
+        where: { boardId },
+        select: { id: true },
+      });
+      const colIds = cols.map((c) => c.id);
+
+      if (colIds.length) {
+        await tx.card.deleteMany({ where: { columnId: { in: colIds } } });
+      }
+      await tx.column.deleteMany({ where: { boardId } });
+      await tx.board.delete({ where: { id: boardId } });
+    });
+
+    revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (e) {
+    console.error("deleteBoard:", e);
+    return { ok: false, error: "Erro ao deletar board." };
+  }
+}
