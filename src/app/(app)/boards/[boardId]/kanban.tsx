@@ -273,7 +273,7 @@ function SortableColumn({
               onClick={(e) => e.stopPropagation()}
               aria-label="Excluir coluna"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 cursor-pointer" />
             </button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -281,8 +281,13 @@ function SortableColumn({
               <AlertDialogTitle>Excluir esta coluna?</AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={onConfirmDelete}>
+              <AlertDialogCancel className="cursor-pointer">
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onConfirmDelete}
+                className="cursor-pointer"
+              >
                 Excluir
               </AlertDialogAction>
             </AlertDialogFooter>
