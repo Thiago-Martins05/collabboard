@@ -35,15 +35,15 @@ export function DashboardFilters() {
   return (
     <div className="grid gap-3 md:grid-cols-3">
       <div className="md:col-span-2">
-        <Label htmlFor="search">Buscar</Label>
+        <Label htmlFor="search">Buscar boards…</Label>
         <Input
           id="search"
-          placeholder="Procure por título..."
+          placeholder="Procure por título…"
           value={q}
           onChange={(e) => {
             const v = e.target.value;
             setQ(v);
-            // pequena “debounce” manual
+            // debounce simples
             window.clearTimeout((window as any).__db_to);
             (window as any).__db_to = window.setTimeout(
               () => push(v, order),

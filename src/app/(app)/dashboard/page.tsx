@@ -52,7 +52,6 @@ export default async function DashboardPage({
         )}
       </div>
 
-      {/* (se estiver usando os filtros e o botão de criar, mantenha-os aqui) */}
       <CreateBoardForm />
 
       {boards.length === 0 ? (

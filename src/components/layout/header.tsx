@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { HeaderSearch } from "./header-search";
 
 export function Header({ orgName }: { orgName?: string }) {
   return (
@@ -18,10 +19,7 @@ export function Header({ orgName }: { orgName?: string }) {
       <div className="ml-auto flex items-center gap-2">
         <div className="hidden sm:flex items-center gap-2 rounded-md border bg-background px-2">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <Input
-            className="h-8 w-56 border-0 focus-visible:ring-0"
-            placeholder="Buscar boards…"
-          />
+          <HeaderSearch />
         </div>
 
         <ThemeToggle />
