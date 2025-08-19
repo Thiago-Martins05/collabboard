@@ -21,13 +21,14 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function CreateCardForm({ columnId }: { columnId: string }) {
+export function CreateCardForm({
+  columnId,
+  boardId,
+}: {
+  columnId: string;
+  boardId: string;
+}) {
   const router = useRouter();
-
-  const [state, formAction] = React.useActionState(createCard, {
-    ok: false,
-    error: undefined as string | undefined,
-  });
 
   const {
     register,
@@ -41,26 +42,22 @@ export function CreateCardForm({ columnId }: { columnId: string }) {
 
   const [isPending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (state?.ok) {
-      toast.success("Card criado!");
-      router.refresh();
-      reset({ title: "" });
-    } else if (state?.error) {
-      toast.error(state.error);
-    }
-  }, [state, router, reset]);
-
   function onSubmit(values: FormValues) {
     const fd = new FormData();
     fd.set("title", values.title.trim());
     fd.set("columnId", columnId);
+    fd.set("boardId", boardId);
 
     startTransition(async () => {
       const id = toast.loading("Criando card…");
-      const res = await formAction(fd);
-      if (res?.ok) toast.success("Card criado com sucesso!", { id });
-      else toast.error(res?.error ?? "Erro ao criar card", { id });
+      const res = await createCard({ ok: false }, fd);
+      if (res?.ok) {
+        toast.success("Card criado com sucesso!", { id });
+        router.refresh();
+        reset({ title: "" });
+      } else {
+        toast.error(res?.error ?? "Erro ao criar card", { id });
+      }
     });
   }
 

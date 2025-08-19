@@ -88,7 +88,6 @@ export async function ensureUserPrimaryOrganization() {
 
     // Se seu schema tiver FeatureLimit (unique por organizationId), cria também.
     try {
-      // @ts-expect-error — ignora caso o modelo não exista no schema
       await tx.featureLimit?.create({
         data: { organizationId: createdOrg.id },
       });

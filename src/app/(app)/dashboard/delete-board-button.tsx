@@ -59,7 +59,7 @@ export function DeleteBoardButton({
         </button>
       </AlertDialogTrigger>
 
-      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir “{boardTitle}”?</AlertDialogTitle>
         </AlertDialogHeader>

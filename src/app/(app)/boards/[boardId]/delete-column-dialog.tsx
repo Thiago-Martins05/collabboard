@@ -54,7 +54,7 @@ export function DeleteColumnDialog({
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
-      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir “{columnTitle}”?</AlertDialogTitle>
         </AlertDialogHeader>

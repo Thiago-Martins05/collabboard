@@ -1,15 +1,14 @@
 "use server";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { renameSchema, editCardSchema } from "./edit-schema";
 
 /** Apagar card (reindexa coluna) */
 export async function deleteCard(boardId: string, cardId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   const card = await db.card.findUnique({
     where: { id: cardId },
@@ -38,8 +37,8 @@ export async function deleteCard(boardId: string, cardId: string) {
 
 /** Apagar coluna (e cards), reindexa colunas */
 export async function deleteColumn(boardId: string, columnId: string) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   const col = await db.column.findUnique({
     where: { id: columnId },
@@ -69,8 +68,8 @@ export async function deleteColumn(boardId: string, columnId: string) {
 
 /** Renomear board */
 export async function renameBoard(boardId: string, data: FormData) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   const parsed = renameSchema.safeParse({
     title: String(data.get("title") || ""),
@@ -92,8 +91,8 @@ export async function renameColumn(
   columnId: string,
   data: FormData
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   const col = await db.column.findUnique({
     where: { id: columnId },
@@ -122,8 +121,8 @@ export async function editCard(
   cardId: string,
   data: FormData
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   const card = await db.card.findUnique({
     where: { id: cardId },

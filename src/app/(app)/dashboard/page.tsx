@@ -21,7 +21,7 @@ export default async function DashboardPage({
   const order = (sp?.order as Search["order"]) ?? "createdDesc";
 
   const session = await getSession();
-  if (!session?.user?.id) return null;
+  if (!session?.user?.email) return null;
 
   // 🔹 Auto-provisiona org pessoal e garante membership OWNER
   const org = await ensureUserPrimaryOrganization();

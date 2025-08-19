@@ -332,7 +332,7 @@ export function Kanban({
 
                 {/* Form de novo card */}
                 <div className="mt-4">
-                  <CreateCardForm columnId={col.id} />
+                  <CreateCardForm columnId={col.id} boardId={boardId} />
                 </div>
               </ColumnDropZone>
             </SortableColumn>

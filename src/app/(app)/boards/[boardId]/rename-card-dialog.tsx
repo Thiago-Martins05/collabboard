@@ -86,7 +86,7 @@ export function RenameCardDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Editar card</AlertDialogTitle>
         </AlertDialogHeader>

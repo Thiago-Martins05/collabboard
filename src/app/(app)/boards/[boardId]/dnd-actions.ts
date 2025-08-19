@@ -2,13 +2,12 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 
 /** Reordenar colunas (horizontal) */
 export async function reorderColumns(boardId: string, orderedIds: string[]) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   // valida IDs pertencentes ao board
   const existing = await db.column.findMany({
@@ -36,8 +35,8 @@ export async function reorderCards(
   boardId: string,
   updates: Array<{ id: string; columnId: string; index: number }>
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+  const session = await getSession();
+  if (!session?.user?.email) return { ok: false, error: "Não autenticado." };
 
   // valida: todos os cards existem e pertencem ao board
   const cardIds = updates.map((u) => u.id);

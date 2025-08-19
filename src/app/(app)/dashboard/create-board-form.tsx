@@ -23,10 +23,6 @@ type FormValues = z.infer<typeof schema>;
 
 export function CreateBoardForm() {
   const router = useRouter();
-  const [state, formAction] = React.useActionState(createBoard, {
-    ok: false,
-    error: undefined,
-  });
   const {
     register,
     handleSubmit,
@@ -38,24 +34,19 @@ export function CreateBoardForm() {
   });
   const [isPending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (state?.ok) {
-      toast.success("Board criado com sucesso!");
-      router.refresh();
-      reset({ title: "" });
-    } else if (state?.error) {
-      toast.error(state.error);
-    }
-  }, [state, reset, router]);
-
   function onSubmit(values: FormValues) {
     const fd = new FormData();
     fd.set("title", values.title.trim());
     startTransition(async () => {
       const id = toast.loading("Criando board…");
-      const res = await formAction(fd);
-      if (res?.ok) toast.success("Board criado com sucesso!", { id });
-      else toast.error(res?.error ?? "Falha ao criar board.", { id });
+      const res = await createBoard({ ok: false }, fd);
+      if (res?.ok) {
+        toast.success("Board criado com sucesso!", { id });
+        router.refresh();
+        reset({ title: "" });
+      } else {
+        toast.error(res?.error ?? "Falha ao criar board.", { id });
+      }
     });
   }
 

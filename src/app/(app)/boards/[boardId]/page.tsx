@@ -37,7 +37,7 @@ export default async function BoardPage({
           />
         </div>
 
-        <CreateColumnForm boardId={board.id} />
+        <CreateColumnForm />
       </div>
 
       <Kanban boardId={board.id} columns={board.columns} />

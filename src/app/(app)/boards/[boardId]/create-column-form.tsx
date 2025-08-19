@@ -26,11 +26,6 @@ export function CreateColumnForm() {
   const params = useParams();
   const boardId = params.boardId as string;
 
-  const [state, formAction] = React.useActionState(createColumn, {
-    ok: false,
-    error: undefined as string | undefined,
-  });
-
   const {
     register,
     handleSubmit,
@@ -43,16 +38,6 @@ export function CreateColumnForm() {
 
   const [isPending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    if (state?.ok) {
-      toast.success("Coluna criada!");
-      router.refresh();
-      reset({ title: "" });
-    } else if (state?.error) {
-      toast.error(state.error);
-    }
-  }, [state, router, reset]);
-
   function onSubmit(values: FormValues) {
     const fd = new FormData();
     fd.set("title", values.title.trim());
@@ -60,9 +45,14 @@ export function CreateColumnForm() {
 
     startTransition(async () => {
       const id = toast.loading("Criando coluna…");
-      const res = await formAction(fd);
-      if (res?.ok) toast.success("Coluna criada com sucesso!", { id });
-      else toast.error(res?.error ?? "Erro ao criar coluna", { id });
+      const res = await createColumn({ ok: false }, fd);
+      if (res?.ok) {
+        toast.success("Coluna criada com sucesso!", { id });
+        router.refresh();
+        reset({ title: "" });
+      } else {
+        toast.error(res?.error ?? "Erro ao criar coluna", { id });
+      }
     });
   }
 
