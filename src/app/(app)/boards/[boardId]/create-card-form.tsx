@@ -1,16 +1,12 @@
 "use client";
 
-import { useActionState, useTransition, FormEvent } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { createCardSchema, type CreateCardInput } from "./schema";
-import { createCard } from "./actions";
+import { useActionState, useEffect, useRef, useTransition } from "react";
+import { toast } from "sonner";
+import { createCard, type ActionState } from "./actions";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { useRouter } from "next/navigation";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea"; // ✅ precisa do componente do shadcn
 
 export function CreateCardForm({
   boardId,
@@ -19,58 +15,61 @@ export function CreateCardForm({
   boardId: string;
   columnId: string;
 }) {
-  const [state, formAction] = useActionState(createCard, {
-    ok: false as boolean,
-    error: undefined as string | undefined,
-  });
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    createCard,
+    { ok: false }
+  );
+  const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const [isPending, start] = useTransition();
-  const router = useRouter();
+  useEffect(() => {
+    if (state?.ok) {
+      toast.success("Card criado!");
+      formRef.current?.reset();
+    } else if (state?.error) {
+      toast.error(state.error);
+    }
+  }, [state]);
 
-  const form = useForm<CreateCardInput>({
-    resolver: zodResolver(createCardSchema),
-    defaultValues: { title: "", description: "", columnId },
-  });
-
-  function onSubmit(e: FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("boardId", boardId);
     fd.set("columnId", columnId);
-    start(() => formAction(fd));
-    form.reset({ title: "", description: "", columnId });
-    start(() => router.refresh());
+    startTransition(() => formAction(fd));
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-2">
-      <Label htmlFor={`title-${columnId}`}>Novo card</Label>
-      <Input
-        id={`title-${columnId}`}
-        placeholder="Título"
-        {...form.register("title")}
-      />
-      <Textarea
-        placeholder="Descrição (opcional)"
-        rows={3}
-        {...form.register("description")}
-      />
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-2">
+      <div className="space-y-1">
+        <Label htmlFor={`new-card-title-${columnId}`}>Título</Label>
+        <Input
+          id={`new-card-title-${columnId}`}
+          name="title"
+          placeholder="Adicionar card…"
+          required
+          disabled={isPending}
+        />
+      </div>
 
-      {form.formState.errors.title && (
-        <p className="text-sm text-red-500">
-          {form.formState.errors.title.message}
-        </p>
-      )}
-      {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
+      <div className="space-y-1">
+        <Label htmlFor={`new-card-desc-${columnId}`}>
+          Descrição (opcional)
+        </Label>
+        <Textarea
+          id={`new-card-desc-${columnId}`}
+          name="description"
+          placeholder="Detalhes do card…"
+          rows={3}
+          disabled={isPending}
+        />
+      </div>
 
-      <Button
-        type="submit"
-        disabled={isPending}
-        className="inline-flex items-center gap-2"
-      >
-        {isPending ? <Spinner /> : null}
-        {isPending ? "Adicionando..." : "Adicionar card"}
-      </Button>
+      <div className="flex justify-end">
+        <Button type="submit" size="sm" disabled={isPending}>
+          {isPending ? "Criando..." : "Adicionar"}
+        </Button>
+      </div>
     </form>
   );
 }
