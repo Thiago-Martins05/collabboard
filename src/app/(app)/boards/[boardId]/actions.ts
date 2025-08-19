@@ -3,106 +3,134 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { createColumnSchema, createCardSchema } from "./schema";
+import { ensureUserPrimaryOrganization } from "@/lib/tenant";
+import { getSession } from "@/lib/session";
 
+/** Helpers de validação */
+const createColumnSchema = z.object({
+  boardId: z.string().min(1),
+  title: z.string().min(2, "Informe um título (mín. 2 caracteres).").max(80),
+});
+
+const createCardSchema = z.object({
+  boardId: z.string().min(1),
+  columnId: z.string().min(1),
+  title: z.string().min(2, "Informe um título (mín. 2 caracteres).").max(120),
+  description: z.string().max(2000).optional().nullable(),
+});
+
+export type ActionState = { ok: boolean; error?: string };
+
+/**
+ * Cria uma nova coluna no board.
+ * Requer: board pertença à org do usuário.
+ * Index é definido como (count atual).
+ */
 export async function createColumn(
-  prev: { ok?: boolean; error?: string } | undefined,
+  _prev: ActionState,
   formData: FormData
-) {
+): Promise<ActionState> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
 
-    const boardId = String(formData.get("boardId") || "");
-    const raw = { title: String(formData.get("title") || "") };
-    const parsed = createColumnSchema.safeParse(raw);
-    if (!parsed.success)
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = createColumnSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      title: (formData.get("title") as string) ?? "",
+    });
+    if (!parsed.success) {
       return {
         ok: false,
-        error: parsed.error.issues[0]?.message || "Inválido",
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
       };
+    }
+    const { boardId, title } = parsed.data;
 
-    // checa existência do board
-    const board = await db.board.findUnique({
-      where: { id: boardId },
-      select: { id: true },
-    });
-    if (!board) return { ok: false, error: "Board não encontrado." };
+    const board = await db.board.findUnique({ where: { id: boardId } });
+    if (!board || board.organizationId !== org.id) {
+      return { ok: false, error: "Board não encontrado." };
+    }
 
-    const last = await db.column.findFirst({
-      where: { boardId },
-      orderBy: { index: "desc" },
-      select: { index: true },
-    });
-    const nextIndex = (last?.index ?? -1) + 1;
+    const count = await db.column.count({ where: { boardId } });
 
     await db.column.create({
       data: {
         boardId,
-        title: parsed.data.title,
-        index: nextIndex,
+        title: title.trim(),
+        index: count, // próximo slot
       },
     });
 
     revalidatePath(`/boards/${boardId}`);
     return { ok: true };
   } catch (e) {
-    console.error("createColumn:", e);
-    return { ok: false, error: "Erro ao criar coluna." };
+    console.error("createColumn error:", e);
+    return { ok: false, error: "Falha ao criar a coluna." };
   }
 }
 
+/**
+ * Cria um novo card em uma coluna.
+ * Requer: coluna pertença ao board e board pertença à org do usuário.
+ * Index é definido como (count atual).
+ */
 export async function createCard(
-  prev: { ok?: boolean; error?: string } | undefined,
+  _prev: ActionState,
   formData: FormData
-) {
+): Promise<ActionState> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return { ok: false, error: "Não autenticado." };
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
 
-    const boardId = String(formData.get("boardId") || "");
-    const raw = {
-      title: String(formData.get("title") || ""),
-      description: String(formData.get("description") || ""),
-      columnId: String(formData.get("columnId") || ""),
-    };
-    const parsed = createCardSchema.safeParse(raw);
-    if (!parsed.success)
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = createCardSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      columnId: (formData.get("columnId") as string) ?? "",
+      title: (formData.get("title") as string) ?? "",
+      description: (formData.get("description") as string) ?? "",
+    });
+    if (!parsed.success) {
       return {
         ok: false,
-        error: parsed.error.issues[0]?.message || "Inválido",
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
       };
+    }
+    const { boardId, columnId, title, description } = parsed.data;
 
-    // checa existência da coluna
     const column = await db.column.findUnique({
-      where: { id: parsed.data.columnId },
-      select: { id: true, boardId: true },
+      where: { id: columnId },
+      include: { board: true },
     });
-    if (!column || column.boardId !== boardId)
-      return { ok: false, error: "Coluna inválida." };
+    if (
+      !column ||
+      column.boardId !== boardId ||
+      column.board.organizationId !== org.id
+    ) {
+      return { ok: false, error: "Coluna não encontrada." };
+    }
 
-    const last = await db.card.findFirst({
-      where: { columnId: column.id },
-      orderBy: { index: "desc" },
-      select: { index: true },
-    });
-    const nextIndex = (last?.index ?? -1) + 1;
+    const count = await db.card.count({ where: { columnId } });
 
     await db.card.create({
       data: {
-        columnId: column.id,
-        title: parsed.data.title,
-        description: parsed.data.description,
-        index: nextIndex,
+        columnId,
+        title: title.trim(),
+        description: (description ?? "").trim() || null,
+        index: count,
       },
     });
 
     revalidatePath(`/boards/${boardId}`);
     return { ok: true };
   } catch (e) {
-    console.error("createCard:", e);
-    return { ok: false, error: "Erro ao criar card." };
+    console.error("createCard error:", e);
+    return { ok: false, error: "Falha ao criar o card." };
   }
 }
