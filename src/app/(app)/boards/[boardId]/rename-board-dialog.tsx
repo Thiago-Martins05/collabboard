@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useTransition } from "react";
 import { renameBoard } from "./manage-actions";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export function RenameBoardDialog({
   boardId,
@@ -22,19 +23,21 @@ export function RenameBoardDialog({
   initial: string;
   trigger: React.ReactNode;
 }) {
-  // server action wrapper p/ useActionState
-  async function action(_: any, fd: FormData) {
-    return renameBoard(boardId, fd);
-  }
-  const [state, formAction] = useActionState(action, {
-    ok: false as boolean,
-    error: undefined as string | undefined,
-  });
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  useEffect(() => {
-    if (state?.ok) router.refresh();
-  }, [state?.ok, router]);
+  async function handleSubmit(formData: FormData) {
+    startTransition(async () => {
+      const id = toast.loading("Renomeando board…");
+      const res = await renameBoard(boardId, formData);
+      if (res?.ok) {
+        toast.success("Board renomeado com sucesso!", { id });
+        router.refresh();
+      } else {
+        toast.error(res?.error ?? "Erro ao renomear board", { id });
+      }
+    });
+  }
 
   return (
     <Dialog>
@@ -43,12 +46,11 @@ export function RenameBoardDialog({
         <DialogHeader>
           <DialogTitle>Renomear board</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="space-y-3">
+        <form action={handleSubmit} className="space-y-3">
           <Input name="title" defaultValue={initial} autoFocus />
-          {state?.error && (
-            <p className="text-sm text-red-500">{state.error}</p>
-          )}
-          <Button type="submit">Salvar</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? "Salvando..." : "Salvar"}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

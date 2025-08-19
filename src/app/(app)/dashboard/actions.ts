@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
+import { getSession } from "@/lib/session";
 import { z } from "zod";
 
 /* ============ CREATE ============ */
@@ -28,11 +29,15 @@ export async function createBoard(
   }
 
   return withRbacGuard(async () => {
-    // Busca a organização primária do usuário
-    const user = await db.user.findFirst({
-      where: { memberships: { some: {} } },
+    // Busca a organização primária do usuário atual
+    const session = await getSession();
+    if (!session?.user?.email) {
+      throw new Error("Não autenticado");
+    }
+
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
       include: { memberships: { include: { organization: true } } },
-      orderBy: { memberships: { createdAt: "asc" } },
     });
 
     if (!user?.memberships?.[0]?.organization) {
