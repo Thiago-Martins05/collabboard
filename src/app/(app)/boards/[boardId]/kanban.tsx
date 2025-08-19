@@ -354,9 +354,10 @@ function SortableColumn({
           <RenameColumnDialog
             boardId={boardId}
             columnId={id}
-            initial={title}
+            currentTitle={title}
             trigger={
               <Button
+                type="button"
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7"

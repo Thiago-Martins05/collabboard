@@ -1,57 +1,102 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { renameColumn } from "./manage-actions";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { renameColumn, type ActionState } from "./actions";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function RenameColumnDialog({
   boardId,
   columnId,
-  initial,
+  currentTitle,
   trigger,
 }: {
   boardId: string;
   columnId: string;
-  initial: string;
+  currentTitle: string;
   trigger: React.ReactNode;
 }) {
-  async function action(_: any, fd: FormData) {
-    return renameColumn(boardId, columnId, fd);
-  }
-  const [state, formAction] = useActionState(action, {
-    ok: false as boolean,
-    error: undefined as string | undefined,
-  });
-  const router = useRouter();
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    renameColumn,
+    { ok: false }
+  );
+  const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(currentTitle);
 
+  // sempre que abrir, sincroniza o título atual
   useEffect(() => {
-    if (state?.ok) router.refresh();
-  }, [state?.ok, router]);
+    if (open) setTitle(currentTitle);
+  }, [open, currentTitle]);
+
+  // responde ao resultado da action (sem depender do "open")
+  useEffect(() => {
+    if (state?.ok) {
+      toast.success("Coluna renomeada!");
+      setOpen(false); // fecha somente quando OK
+    } else if (state?.error) {
+      toast.error(state.error);
+      // mantém aberto para o usuário corrigir
+    }
+  }, [state]);
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Renomear coluna</DialogTitle>
-        </DialogHeader>
-        <form action={formAction} className="space-y-3">
-          <Input name="title" defaultValue={initial} autoFocus />
-          {state?.error && (
-            <p className="text-sm text-red-500">{state.error}</p>
-          )}
-          <Button type="submit">Salvar</Button>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+
+      <AlertDialogContent
+        key={open ? "open" : "closed"} // força remount limpinho a cada abertura
+        onPointerDownOutside={(e) => e.preventDefault()} // evita fechar sem querer
+      >
+        <AlertDialogHeader>
+          <AlertDialogTitle>Renomear coluna</AlertDialogTitle>
+        </AlertDialogHeader>
+
+        <form
+          action={(fd) => {
+            fd.set("boardId", boardId);
+            fd.set("columnId", columnId);
+            fd.set("title", title);
+            startTransition(() => formAction(fd));
+          }}
+          className="space-y-3"
+        >
+          <div className="space-y-1">
+            <Label htmlFor={`rename-col-${columnId}`}>Novo título</Label>
+            <Input
+              id={`rename-col-${columnId}`}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              minLength={2}
+              maxLength={80}
+              disabled={isPending}
+              autoFocus
+            />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={isPending}>
+              Cancelar
+            </AlertDialogCancel>
+            {/* 👉 Button normal, NÃO fecha o dialog automaticamente */}
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </AlertDialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
