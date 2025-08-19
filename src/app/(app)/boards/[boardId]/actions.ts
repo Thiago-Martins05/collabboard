@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { ensureUserPrimaryOrganization } from "@/lib/tenant";
-import { getSession } from "@/lib/session";
+import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 
 /** Helpers de validação */
 const createColumnSchema = z.object({
@@ -30,30 +29,30 @@ export async function createColumn(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = createColumnSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    title: (formData.get("title") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, title } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = createColumnSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      title: (formData.get("title") as string) ?? "",
+  return withRbacGuard(async () => {
+    // Busca o board e verifica se o usuário tem acesso
+    const board = await db.board.findUnique({
+      where: { id: boardId },
+      select: { organizationId: true },
     });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
+    if (!board) {
+      throw new Error("Board não encontrado.");
     }
-    const { boardId, title } = parsed.data;
 
-    const board = await db.board.findUnique({ where: { id: boardId } });
-    if (!board || board.organizationId !== org.id) {
-      return { ok: false, error: "Board não encontrado." };
-    }
+    // Verifica se o usuário é membro da organização
+    await requireMembership(board.organizationId);
 
     const count = await db.column.count({ where: { boardId } });
 
@@ -67,10 +66,7 @@ export async function createColumn(
 
     revalidatePath(`/boards/${boardId}`);
     return { ok: true };
-  } catch (e) {
-    console.error("createColumn error:", e);
-    return { ok: false, error: "Falha ao criar a coluna." };
-  }
+  });
 }
 
 /**
@@ -82,39 +78,32 @@ export async function createCard(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = createCardSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    columnId: (formData.get("columnId") as string) ?? "",
+    title: (formData.get("title") as string) ?? "",
+    description: (formData.get("description") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, columnId, title, description } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = createCardSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      columnId: (formData.get("columnId") as string) ?? "",
-      title: (formData.get("title") as string) ?? "",
-      description: (formData.get("description") as string) ?? "",
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-    const { boardId, columnId, title, description } = parsed.data;
-
+  return withRbacGuard(async () => {
+    // Busca a coluna e verifica se o usuário tem acesso
     const column = await db.column.findUnique({
       where: { id: columnId },
-      include: { board: true },
+      include: { board: { select: { organizationId: true } } },
     });
-    if (
-      !column ||
-      column.boardId !== boardId ||
-      column.board.organizationId !== org.id
-    ) {
-      return { ok: false, error: "Coluna não encontrada." };
+    if (!column || column.boardId !== boardId) {
+      throw new Error("Coluna não encontrada.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(column.board.organizationId);
 
     const count = await db.card.count({ where: { columnId } });
 
@@ -129,10 +118,7 @@ export async function createCard(
 
     revalidatePath(`/boards/${boardId}`);
     return { ok: true };
-  } catch (e) {
-    console.error("createCard error:", e);
-    return { ok: false, error: "Falha ao criar o card." };
-  }
+  });
 }
 
 const renameColumnSchema = z.object({
@@ -145,38 +131,30 @@ export async function renameColumn(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = renameColumnSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    columnId: (formData.get("columnId") as string) ?? "",
+    title: (formData.get("title") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, columnId, title } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = renameColumnSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      columnId: (formData.get("columnId") as string) ?? "",
-      title: (formData.get("title") as string) ?? "",
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-    const { boardId, columnId, title } = parsed.data;
-
+  return withRbacGuard(async () => {
     const column = await db.column.findUnique({
       where: { id: columnId },
-      include: { board: true },
+      include: { board: { select: { organizationId: true } } },
     });
-    if (
-      !column ||
-      column.boardId !== boardId ||
-      column.board.organizationId !== org.id
-    ) {
-      return { ok: false, error: "Coluna não encontrada." };
+    if (!column || column.boardId !== boardId) {
+      throw new Error("Coluna não encontrada.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(column.board.organizationId);
 
     await db.column.update({
       where: { id: columnId },
@@ -184,10 +162,7 @@ export async function renameColumn(
     });
 
     return { ok: true };
-  } catch (e) {
-    console.error("renameColumn error:", e);
-    return { ok: false, error: "Falha ao renomear a coluna." };
-  }
+  });
 }
 
 const deleteColumnSchema = z.object({
@@ -199,45 +174,34 @@ export async function deleteColumn(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = deleteColumnSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    columnId: (formData.get("columnId") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, columnId } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = deleteColumnSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      columnId: (formData.get("columnId") as string) ?? "",
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-    const { boardId, columnId } = parsed.data;
-
+  return withRbacGuard(async () => {
     const column = await db.column.findUnique({
       where: { id: columnId },
-      include: { board: true },
+      include: { board: { select: { organizationId: true } } },
     });
-    if (
-      !column ||
-      column.boardId !== boardId ||
-      column.board.organizationId !== org.id
-    ) {
-      return { ok: false, error: "Coluna não encontrada." };
+    if (!column || column.boardId !== boardId) {
+      throw new Error("Coluna não encontrada.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(column.board.organizationId);
 
     await db.column.delete({ where: { id: columnId } });
 
     return { ok: true };
-  } catch (e) {
-    console.error("deleteColumn error:", e);
-    return { ok: false, error: "Falha ao excluir a coluna." };
-  }
+  });
 }
 
 // --- B3.5: card rename & delete ---
@@ -257,39 +221,33 @@ export async function renameCard(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = renameCardSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    cardId: (formData.get("cardId") as string) ?? "",
+    title: formData.get("title")?.toString(),
+    description: formData.get("description")?.toString(),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, cardId, title, description } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = renameCardSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      cardId: (formData.get("cardId") as string) ?? "",
-      title: formData.get("title")?.toString(),
-      description: formData.get("description")?.toString(),
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-    const { boardId, cardId, title, description } = parsed.data;
-
+  return withRbacGuard(async () => {
     const card = await db.card.findUnique({
       where: { id: cardId },
-      include: { column: { include: { board: true } } },
+      include: {
+        column: { include: { board: { select: { organizationId: true } } } },
+      },
     });
-    if (
-      !card ||
-      card.column.boardId !== boardId ||
-      card.column.board.organizationId !== org.id
-    ) {
-      return { ok: false, error: "Card não encontrado." };
+    if (!card || card.column.boardId !== boardId) {
+      throw new Error("Card não encontrado.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(card.column.board.organizationId);
 
     const data: { title?: string; description?: string | null } = {};
     if (title !== undefined) data.title = title.trim();
@@ -298,10 +256,7 @@ export async function renameCard(
 
     await db.card.update({ where: { id: cardId }, data });
     return { ok: true }; // sem revalidatePath — o client fará router.refresh()
-  } catch (e) {
-    console.error("renameCard error:", e);
-    return { ok: false, error: "Falha ao atualizar o card." };
-  }
+  });
 }
 
 const deleteCardSchema = z.object({
@@ -313,42 +268,33 @@ export async function deleteCard(
   _prev: ActionState,
   formData: FormData
 ): Promise<ActionState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = deleteCardSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    cardId: (formData.get("cardId") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  const { boardId, cardId } = parsed.data;
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = deleteCardSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      cardId: (formData.get("cardId") as string) ?? "",
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-    const { boardId, cardId } = parsed.data;
-
+  return withRbacGuard(async () => {
     const card = await db.card.findUnique({
       where: { id: cardId },
-      include: { column: { include: { board: true } } },
+      include: {
+        column: { include: { board: { select: { organizationId: true } } } },
+      },
     });
-    if (
-      !card ||
-      card.column.boardId !== boardId ||
-      card.column.board.organizationId !== org.id
-    ) {
-      return { ok: false, error: "Card não encontrado." };
+    if (!card || card.column.boardId !== boardId) {
+      throw new Error("Card não encontrado.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(card.column.board.organizationId);
 
     await db.card.delete({ where: { id: cardId } });
     return { ok: true }; // sem revalidatePath — o client fará router.refresh()
-  } catch (e) {
-    console.error("deleteCard error:", e);
-    return { ok: false, error: "Falha ao excluir o card." };
-  }
+  });
 }

@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { ensureUserPrimaryOrganization } from "@/lib/tenant";
-import { getSession } from "@/lib/session";
+import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 import { z } from "zod";
 
 /* ============ CREATE ============ */
@@ -18,23 +17,32 @@ export async function createBoard(
   _prev: CreateBoardState,
   formData: FormData
 ): Promise<CreateBoardState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = createBoardSchema.safeParse({
+    title: (formData.get("title") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = createBoardSchema.safeParse({
-      title: (formData.get("title") as string) ?? "",
+  return withRbacGuard(async () => {
+    // Busca a organização primária do usuário
+    const user = await db.user.findFirst({
+      where: { memberships: { some: {} } },
+      include: { memberships: { include: { organization: true } } },
+      orderBy: { memberships: { createdAt: "asc" } },
     });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
+
+    if (!user?.memberships?.[0]?.organization) {
+      throw new Error("Organização não encontrada.");
     }
+
+    const org = user.memberships[0].organization;
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(org.id);
 
     await db.board.create({
       data: {
@@ -45,10 +53,7 @@ export async function createBoard(
 
     revalidatePath("/dashboard");
     return { ok: true };
-  } catch (e) {
-    console.error("createBoard error:", e);
-    return { ok: false, error: "Falha ao criar o board." };
-  }
+  });
 }
 
 /* ============ DELETE ============ */
@@ -63,38 +68,32 @@ export async function deleteBoard(
   _prev: DeleteBoardState,
   formData: FormData
 ): Promise<DeleteBoardState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = deleteBoardSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
-
-    const parsed = deleteBoardSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-    });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
-    }
-
-    // (opcional) conferir se o board pertence à mesma org
+  return withRbacGuard(async () => {
+    // Busca o board e verifica se o usuário tem acesso
     const board = await db.board.findUnique({
       where: { id: parsed.data.boardId },
+      select: { organizationId: true },
     });
-    if (!board || board.organizationId !== org.id) {
-      return { ok: false, error: "Board não encontrado." };
+    if (!board) {
+      throw new Error("Board não encontrado.");
     }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(board.organizationId);
 
     await db.board.delete({ where: { id: parsed.data.boardId } });
 
     revalidatePath("/dashboard");
     return { ok: true };
-  } catch (e) {
-    console.error("deleteBoard error:", e);
-    return { ok: false, error: "Falha ao excluir o board." };
-  }
+  });
 }

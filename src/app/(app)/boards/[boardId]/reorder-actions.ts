@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/session";
-import { ensureUserPrimaryOrganization } from "@/lib/tenant";
+import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 
 const reorderSchema = z.object({
   boardId: z.string().min(1),
@@ -28,28 +27,33 @@ export async function reorderCards(
   _: ReorderState,
   formData: FormData
 ): Promise<ReorderState> {
-  try {
-    const session = await getSession();
-    if (!session?.user?.email)
-      return { ok: false, error: "Você precisa estar autenticado." };
+  const parsed = reorderSchema.safeParse({
+    boardId: (formData.get("boardId") as string) ?? "",
+    updates: JSON.parse((formData.get("updates") as string) ?? "[]"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
 
-    const org = await ensureUserPrimaryOrganization();
-    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+  const { boardId, updates } = parsed.data;
 
-    const parsed = reorderSchema.safeParse({
-      boardId: (formData.get("boardId") as string) ?? "",
-      updates: JSON.parse((formData.get("updates") as string) ?? "[]"),
+  return withRbacGuard(async () => {
+    // Busca o board e verifica se o usuário tem acesso
+    const board = await db.board.findUnique({
+      where: { id: boardId },
+      select: { organizationId: true },
     });
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
-      };
+    if (!board) {
+      throw new Error("Board não encontrado.");
     }
 
-    const { boardId, updates } = parsed.data;
+    // Verifica se o usuário é membro da organização
+    await requireMembership(board.organizationId);
 
-    // Segurança: garanta que todos os cards realmente pertencem ao board & org do usuário
+    // Segurança: garanta que todos os cards realmente pertencem ao board
     const cardIds = updates.map((u) => u.id);
     const found = await db.card.findMany({
       where: { id: { in: cardIds } },
@@ -58,26 +62,16 @@ export async function reorderCards(
         column: {
           select: {
             boardId: true,
-            board: { select: { organizationId: true } },
           },
         },
       },
     });
 
     const validIds = new Set(
-      found
-        .filter(
-          (c) =>
-            c.column.boardId === boardId &&
-            c.column.board.organizationId === org.id
-        )
-        .map((c) => c.id)
+      found.filter((c) => c.column.boardId === boardId).map((c) => c.id)
     );
     if (validIds.size !== cardIds.length) {
-      return {
-        ok: false,
-        error: "Tentativa de mover cards fora do seu board.",
-      };
+      throw new Error("Tentativa de mover cards fora do seu board.");
     }
 
     // Aplica as mudanças em transação
@@ -91,8 +85,5 @@ export async function reorderCards(
     });
 
     return { ok: true };
-  } catch (e) {
-    console.error("reorderCards error:", e);
-    return { ok: false, error: "Falha ao reordenar os cards." };
-  }
+  });
 }
