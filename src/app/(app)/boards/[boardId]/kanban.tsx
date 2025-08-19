@@ -31,6 +31,7 @@ import { RenameColumnDialog } from "./rename-column-dialog";
 import { DeleteColumnDialog } from "./delete-column-dialog";
 import { RenameCardDialog } from "./rename-card-dialog";
 import { DeleteCardDialog } from "./delete-card-dialog";
+import { CardModal } from "./card-modal";
 import { reorderCards } from "./reorder-actions";
 import { reorderColumns } from "./reorder-columns";
 
@@ -265,13 +266,16 @@ export function Kanban({
                     ) : (
                       col.cards.map((card) => (
                         <SortableCard key={card.id} id={card.id}>
-                          <div
-                            role="article"
-                            aria-roledescription="Card"
-                            aria-label={card.title}
-                            className="rounded-lg border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 text-sm group focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 hover:shadow-md"
-                            tabIndex={0}
-                          >
+                          <CardModal
+                            card={card}
+                            trigger={
+                              <div
+                                role="article"
+                                aria-roledescription="Card"
+                                aria-label={card.title}
+                                className="rounded-lg border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 text-sm group focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 hover:shadow-md cursor-pointer"
+                                tabIndex={0}
+                              >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <div className="font-medium truncate">
@@ -323,7 +327,9 @@ export function Kanban({
                                 />
                               </div>
                             </div>
-                          </div>
+                              </div>
+                            }
+                          />
                         </SortableCard>
                       ))
                     )}

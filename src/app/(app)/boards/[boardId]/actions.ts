@@ -18,6 +18,18 @@ const createCardSchema = z.object({
   description: z.string().max(2000).optional().nullable(),
 });
 
+const updateCardSchema = z.object({
+  cardId: z.string().min(1),
+  title: z.string().min(2, "Informe um título (mín. 2 caracteres).").max(120),
+  description: z.string().max(2000).optional().nullable(),
+});
+
+const deleteCardModalSchema = z.object({
+  cardId: z.string().min(1),
+});
+
+
+
 export type ActionState = { ok: boolean; error?: string };
 
 /**
@@ -296,5 +308,99 @@ export async function deleteCard(
 
     await db.card.delete({ where: { id: cardId } });
     return { ok: true }; // sem revalidatePath — o client fará router.refresh()
+  });
+}
+
+/**
+ * Atualiza um card (título e descrição)
+ * Usado pelo modal de detalhes do card
+ */
+export async function updateCard(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = updateCardSchema.safeParse({
+    cardId: (formData.get("cardId") as string) ?? "",
+    title: (formData.get("title") as string) ?? "",
+    description: formData.get("description") as string | null,
+  });
+  
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  
+  const { cardId, title, description } = parsed.data;
+
+  return withRbacGuard(async () => {
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: {
+        column: { include: { board: { select: { organizationId: true } } } },
+      },
+    });
+    
+    if (!card) {
+      throw new Error("Card não encontrado.");
+    }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(card.column.board.organizationId);
+
+    await db.card.update({
+      where: { id: cardId },
+      data: {
+        title: title.trim(),
+        description: description?.trim() || null,
+      },
+    });
+
+    revalidatePath(`/boards/${card.column.boardId}`);
+    return { ok: true };
+  });
+}
+
+/**
+ * Deleta um card (versão simplificada para o modal)
+ * Usado pelo modal de detalhes do card
+ */
+export async function deleteCardModal(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = deleteCardModalSchema.safeParse({
+    cardId: (formData.get("cardId") as string) ?? "",
+  });
+  
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  
+  const { cardId } = parsed.data;
+
+  return withRbacGuard(async () => {
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: {
+        column: { include: { board: { select: { organizationId: true } } } },
+      },
+    });
+    
+    if (!card) {
+      throw new Error("Card não encontrado.");
+    }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(card.column.board.organizationId);
+
+    await db.card.delete({ where: { id: cardId } });
+
+    revalidatePath(`/boards/${card.column.boardId}`);
+    return { ok: true };
   });
 }
