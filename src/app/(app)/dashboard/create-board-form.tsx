@@ -1,59 +1,56 @@
 "use client";
 
-import { useActionState, FormEvent, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { createBoardSchema, CreateBoardInput } from "./schema";
-import { createBoard } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
+import { useActionState, useEffect, useRef, useTransition } from "react";
+import { toast } from "sonner";
+import { createBoard, type CreateBoardState } from "./actions";
 
-export function CreateBoardForm() {
-  const [state, formAction] = useActionState(createBoard, {
-    ok: false as boolean,
-    error: undefined as string | undefined,
-  });
-  const [isPending, start] = useTransition();
+export default function CreateBoardForm() {
+  const [state, formAction] = useActionState<CreateBoardState, FormData>(
+    createBoard,
+    { ok: false }
+  );
+  const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const form = useForm<CreateBoardInput>({
-    resolver: zodResolver(createBoardSchema),
-    defaultValues: { title: "" },
-  });
+  // Reage ao resultado da server action via `state`
+  useEffect(() => {
+    if (state?.ok) {
+      toast.success("Board criado com sucesso!");
+      formRef.current?.reset();
+    } else if (state?.error) {
+      toast.error(state.error);
+    }
+  }, [state]);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    start(() => formAction(data))(e.currentTarget as HTMLFormElement).reset();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => {
+      // não aguarde o retorno—o `state` será atualizado pela action
+      formAction(fd);
+    });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="title">Board name</Label>
-        <Input
-          id="title"
-          type="text"
-          placeholder="Ex: Fazer tarefa ..."
-          {...form.register("title")}
-        />
-        {form.formState.errors.title && (
-          <p className="text-sm text-red-500">
-            {form.formState.errors.title.message}
-          </p>
-        )}
-      </div>
-
-      {state?.error && <p className="text-sm text-red-500">{state.error}</p>}
-
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="flex items-center gap-2"
+    >
+      <input
+        type="text"
+        name="title"
+        placeholder="Título do board"
+        className="flex-1 rounded-md border px-3 py-2 text-sm"
+        disabled={isPending}
+        required
+      />
       <button
         type="submit"
-        className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-md bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
         disabled={isPending}
       >
-        {isPending ? <Spinner /> : null}
-        {isPending ? "Criando..." : "Criar board"}
+        {isPending ? "Criando..." : "Criar"}
       </button>
     </form>
   );

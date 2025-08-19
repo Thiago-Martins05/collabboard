@@ -1,9 +1,9 @@
-// src/app/(app)/dashboard/page.tsx
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
-import { getUserPrimaryOrganization } from "@/lib/tenant";
-import { CreateBoardForm } from "./create-board-form";
+import { ensureUserPrimaryOrganization } from "@/lib/tenant";
+import { ensureOwnerMembership } from "@/lib/rbac";
+import CreateBoardForm from "./create-board-form";
 import { DeleteBoardButton } from "./delete-board-button";
 
 type Search = {
@@ -21,9 +21,13 @@ export default async function DashboardPage({
   const order = (sp?.order as Search["order"]) ?? "createdDesc";
 
   const session = await getSession();
-  if (!session?.user?.id) return null; // Já deve estar protegido por middleware
+  if (!session?.user?.id) return null;
 
-  const org = await getUserPrimaryOrganization(session.user.id as string);
+  // 🔹 Auto-provisiona org pessoal e garante membership OWNER
+  const org = await ensureUserPrimaryOrganization();
+  if (org?.id) {
+    await ensureOwnerMembership(org.id);
+  }
 
   const orderBy =
     order === "createdAsc"
@@ -44,7 +48,7 @@ export default async function DashboardPage({
   });
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         {org?.name && (
@@ -52,6 +56,7 @@ export default async function DashboardPage({
         )}
       </div>
 
+      {/* Criar novo board */}
       <CreateBoardForm />
 
       {boards.length === 0 ? (

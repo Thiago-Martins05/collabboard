@@ -18,6 +18,7 @@ model User {
   sessions      Session[]
   memberships   Membership[]
   createdAt     DateTime     @default(now())
+  Invite        Invite[]
 }
 
 model Account {
@@ -67,18 +68,24 @@ model Organization {
   memberships Membership[]
   boards      Board[]
   createdAt   DateTime     @default(now())
+  Invite      Invite[]
 }
 
 model Membership {
-  id             String @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
   organizationId String
-  role           Role   @default(MEMBER)
+  role           Role     @default(MEMBER)
+  createdAt      DateTime @default(now())
+
+  //relations
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
 }
 
 enum Role {
@@ -150,4 +157,33 @@ model FeatureLimit {
   organizationId String @unique
   maxBoards      Int    @default(3)
   maxMembers     Int    @default(5)
+}
+
+// ---- RBAC ----
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELED
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  token          String       @unique
+  role           Role         @default(MEMBER)
+  invitedById    String
+  status         InviteStatus @default(PENDING)
+  expiresAt      DateTime
+
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
 }
