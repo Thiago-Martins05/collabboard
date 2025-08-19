@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea"; // ✅ precisa do componente do shadcn
+import { useRouter } from "next/navigation";
 
 export function CreateCardForm({
   boardId,
@@ -21,15 +22,17 @@ export function CreateCardForm({
   );
   const [isPending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (state?.ok) {
       toast.success("Card criado!");
       formRef.current?.reset();
+      router.refresh();
     } else if (state?.error) {
       toast.error(state.error);
     }
-  }, [state]);
+  }, [state, router]);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

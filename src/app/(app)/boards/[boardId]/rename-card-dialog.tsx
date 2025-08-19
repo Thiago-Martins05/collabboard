@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { renameColumn, type ActionState } from "./actions";
+import { renameCard, type ActionState } from "./actions";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -17,75 +18,89 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export function RenameColumnDialog({
+export function RenameCardDialog({
   boardId,
-  columnId,
+  cardId,
   currentTitle,
+  currentDescription,
   trigger,
 }: {
   boardId: string;
-  columnId: string;
+  cardId: string;
   currentTitle: string;
-  trigger: React.ReactNode;
+  currentDescription?: string | null;
+  trigger: React.ReactNode; // ex.: <Button type="button" ...>✏️</Button>
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(
-    renameColumn,
+    renameCard,
     { ok: false }
   );
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(currentTitle);
+  const [description, setDescription] = useState(currentDescription ?? "");
   const router = useRouter();
 
-  // sempre que abrir, sincroniza o título atual
   useEffect(() => {
-    if (open) setTitle(currentTitle);
-  }, [open, currentTitle]);
+    if (open) {
+      setTitle(currentTitle);
+      setDescription(currentDescription ?? "");
+    }
+  }, [open, currentTitle, currentDescription]);
 
-  // responde ao resultado da action (sem depender do "open")
   useEffect(() => {
     if (state?.ok) {
-      toast.success("Coluna renomeada!");
-      setOpen(false); // fecha somente quando OK
+      toast.success("Card atualizado!");
+      setOpen(false);
       router.refresh();
     } else if (state?.error) {
       toast.error(state.error);
-      // mantém aberto para o usuário corrigir
     }
   }, [state, router]);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogTrigger type="button" asChild>
+        {trigger}
+      </AlertDialogTrigger>
 
-      <AlertDialogContent
-        key={open ? "open" : "closed"} // força remount limpinho a cada abertura
-        onPointerDownOutside={(e) => e.preventDefault()} // evita fechar sem querer
-      >
+      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Renomear coluna</AlertDialogTitle>
+          <AlertDialogTitle>Editar card</AlertDialogTitle>
         </AlertDialogHeader>
 
         <form
           action={(fd) => {
             fd.set("boardId", boardId);
-            fd.set("columnId", columnId);
+            fd.set("cardId", cardId);
+            // title e/ou description podem ser enviados (server action permite parciais)
             fd.set("title", title);
+            fd.set("description", description);
             startTransition(() => formAction(fd));
           }}
           className="space-y-3"
         >
           <div className="space-y-1">
-            <Label htmlFor={`rename-col-${columnId}`}>Novo título</Label>
+            <Label htmlFor={`edit-card-title-${cardId}`}>Título</Label>
             <Input
-              id={`rename-col-${columnId}`}
+              id={`edit-card-title-${cardId}`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              required
               minLength={2}
-              maxLength={80}
+              maxLength={120}
               disabled={isPending}
-              autoFocus
+              required
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor={`edit-card-desc-${cardId}`}>Descrição</Label>
+            <Textarea
+              id={`edit-card-desc-${cardId}`}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              disabled={isPending}
             />
           </div>
 
@@ -93,7 +108,6 @@ export function RenameColumnDialog({
             <AlertDialogCancel type="button" disabled={isPending}>
               Cancelar
             </AlertDialogCancel>
-            {/* 👉 Button normal, NÃO fecha o dialog automaticamente */}
             <Button type="submit" disabled={isPending}>
               {isPending ? "Salvando..." : "Salvar"}
             </Button>

@@ -183,7 +183,6 @@ export async function renameColumn(
       data: { title: title.trim() },
     });
 
-    revalidatePath(`/boards/${boardId}`);
     return { ok: true };
   } catch (e) {
     console.error("renameColumn error:", e);
@@ -234,10 +233,122 @@ export async function deleteColumn(
 
     await db.column.delete({ where: { id: columnId } });
 
-    revalidatePath(`/boards/${boardId}`);
     return { ok: true };
   } catch (e) {
     console.error("deleteColumn error:", e);
     return { ok: false, error: "Falha ao excluir a coluna." };
+  }
+}
+
+// --- B3.5: card rename & delete ---
+
+const renameCardSchema = z
+  .object({
+    boardId: z.string().min(1),
+    cardId: z.string().min(1),
+    title: z.string().min(2, "Título muito curto.").max(120).optional(),
+    description: z.string().max(2000).nullable().optional(),
+  })
+  .refine((d) => d.title !== undefined || d.description !== undefined, {
+    message: "Forneça título ou descrição para atualizar.",
+  });
+
+export async function renameCard(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
+
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = renameCardSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      cardId: (formData.get("cardId") as string) ?? "",
+      title: formData.get("title")?.toString(),
+      description: formData.get("description")?.toString(),
+    });
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+      };
+    }
+    const { boardId, cardId, title, description } = parsed.data;
+
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: { column: { include: { board: true } } },
+    });
+    if (
+      !card ||
+      card.column.boardId !== boardId ||
+      card.column.board.organizationId !== org.id
+    ) {
+      return { ok: false, error: "Card não encontrado." };
+    }
+
+    const data: { title?: string; description?: string | null } = {};
+    if (title !== undefined) data.title = title.trim();
+    if (description !== undefined)
+      data.description = (description ?? "").trim() || null;
+
+    await db.card.update({ where: { id: cardId }, data });
+    return { ok: true }; // sem revalidatePath — o client fará router.refresh()
+  } catch (e) {
+    console.error("renameCard error:", e);
+    return { ok: false, error: "Falha ao atualizar o card." };
+  }
+}
+
+const deleteCardSchema = z.object({
+  boardId: z.string().min(1),
+  cardId: z.string().min(1),
+});
+
+export async function deleteCard(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
+
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = deleteCardSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      cardId: (formData.get("cardId") as string) ?? "",
+    });
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+      };
+    }
+    const { boardId, cardId } = parsed.data;
+
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: { column: { include: { board: true } } },
+    });
+    if (
+      !card ||
+      card.column.boardId !== boardId ||
+      card.column.board.organizationId !== org.id
+    ) {
+      return { ok: false, error: "Card não encontrado." };
+    }
+
+    await db.card.delete({ where: { id: cardId } });
+    return { ok: true }; // sem revalidatePath — o client fará router.refresh()
+  } catch (e) {
+    console.error("deleteCard error:", e);
+    return { ok: false, error: "Falha ao excluir o card." };
   }
 }

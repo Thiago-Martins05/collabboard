@@ -23,6 +23,9 @@ import { CreateCardForm } from "./create-card-form";
 import { reorderColumns, reorderCards } from "./dnd-actions";
 import { deleteCard, deleteColumn, editCard } from "./manage-actions";
 import { RenameColumnDialog } from "./rename-column-dialog";
+import { DeleteColumnDialog } from "./delete-column-dialog";
+import { RenameCardDialog } from "./rename-card-dialog";
+import { DeleteCardDialog } from "./delete-card-dialog";
 
 import {
   AlertDialog,

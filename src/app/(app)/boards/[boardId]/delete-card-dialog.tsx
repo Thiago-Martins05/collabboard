@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { deleteColumn } from "./actions";
+import { deleteCard } from "./actions";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -15,39 +15,34 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export function DeleteColumnDialog({
+export function DeleteCardDialog({
   boardId,
-  columnId,
-  columnTitle,
+  cardId,
+  cardTitle,
   trigger,
-  onDeleted,
 }: {
   boardId: string;
-  columnId: string;
-  columnTitle: string;
+  cardId: string;
+  cardTitle: string;
   trigger: React.ReactNode;
-  onDeleted?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   async function onConfirm(fd: FormData) {
-    // garante campos
     fd.set("boardId", boardId);
-    fd.set("columnId", columnId);
+    fd.set("cardId", cardId);
 
-    const loadingId = toast.loading("Excluindo coluna…");
-    const res = await deleteColumn({ ok: false }, fd);
+    const loadingId = toast.loading("Excluindo card…");
+    const res = await deleteCard({ ok: false }, fd);
 
     if (res.ok) {
-      toast.success(`Coluna “${columnTitle}” excluída!`, { id: loadingId });
+      toast.success(`Card “${cardTitle}” excluído!`, { id: loadingId });
       setOpen(false);
-      onDeleted?.();
-      // pequeno atraso só para o usuário ver o toast
       setTimeout(() => router.refresh(), 120);
     } else {
-      toast.error(res.error ?? "Falha ao excluir a coluna.", { id: loadingId });
+      toast.error(res.error ?? "Falha ao excluir o card.", { id: loadingId });
     }
   }
 
@@ -57,7 +52,7 @@ export function DeleteColumnDialog({
 
       <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Excluir “{columnTitle}”?</AlertDialogTitle>
+          <AlertDialogTitle>Excluir “{cardTitle}”?</AlertDialogTitle>
         </AlertDialogHeader>
 
         <form action={(fd) => startTransition(() => onConfirm(fd))}>
