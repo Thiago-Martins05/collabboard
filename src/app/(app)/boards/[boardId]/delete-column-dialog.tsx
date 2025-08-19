@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteColumn } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -33,21 +34,19 @@ export function DeleteColumnDialog({
   const router = useRouter();
 
   async function onConfirm(fd: FormData) {
-    // garante campos
     fd.set("boardId", boardId);
     fd.set("columnId", columnId);
 
-    const loadingId = toast.loading("Excluindo coluna…");
+    const id = toast.loading("Excluindo coluna…");
     const res = await deleteColumn({ ok: false }, fd);
 
     if (res.ok) {
-      toast.success(`Coluna “${columnTitle}” excluída!`, { id: loadingId });
       setOpen(false);
       onDeleted?.();
-      // pequeno atraso só para o usuário ver o toast
-      setTimeout(() => router.refresh(), 120);
+      toast.success(`Coluna “${columnTitle}” excluída!`, { id });
+      setTimeout(() => router.refresh(), 400);
     } else {
-      toast.error(res.error ?? "Falha ao excluir a coluna.", { id: loadingId });
+      toast.error(res.error ?? "Falha ao excluir a coluna.", { id });
     }
   }
 
@@ -66,7 +65,14 @@ export function DeleteColumnDialog({
               Cancelar
             </AlertDialogCancel>
             <Button type="submit" variant="destructive" disabled={isPending}>
-              {isPending ? "Excluindo..." : "Excluir"}
+              {isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Excluindo…
+                </span>
+              ) : (
+                "Excluir"
+              )}
             </Button>
           </AlertDialogFooter>
         </form>

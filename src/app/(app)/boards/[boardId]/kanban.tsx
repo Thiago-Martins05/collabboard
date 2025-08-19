@@ -10,6 +10,7 @@ import {
   closestCenter,
   DragEndEvent,
   useDroppable,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -60,6 +61,13 @@ export function Kanban({
     normalize(initialColumns)
   );
 
+  // estado para desenhar o ghost no DragOverlay
+  const [activeDrag, setActiveDrag] = React.useState<
+    | { type: "column"; id: string; title: string }
+    | { type: "card"; id: string; title: string; description?: string | null }
+    | null
+  >(null);
+
   React.useEffect(
     () => setColumns(normalize(initialColumns)),
     [initialColumns]
@@ -69,12 +77,39 @@ export function Kanban({
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  // IDs das colunas (ordem visual)
   const columnIds = React.useMemo(() => columns.map((c) => c.id), [columns]);
+
+  // inicia o ghost conforme item
+  const onDragStart = React.useCallback(
+    ({ active }: any) => {
+      const t = active?.data?.current?.type as "column" | "card" | undefined;
+      if (t === "column") {
+        const id = String(active.id);
+        const col = columns.find((c) => c.id === id);
+        if (col) setActiveDrag({ type: "column", id, title: col.title });
+      } else if (t === "card") {
+        const id = String(active.id);
+        for (const col of columns) {
+          const card = col.cards.find((c) => c.id === id);
+          if (card) {
+            setActiveDrag({
+              type: "card",
+              id,
+              title: card.title,
+              description: card.description ?? null,
+            });
+            break;
+          }
+        }
+      }
+    },
+    [columns]
+  );
 
   const onDragEnd = React.useCallback(
     (evt: DragEndEvent) => {
       const { active, over } = evt;
+      setActiveDrag(null); // limpa o ghost
       if (!over) return;
 
       const activeType = active.data?.current?.type as
@@ -101,7 +136,6 @@ export function Kanban({
         }));
         setColumns(next);
 
-        // persistir ordem final de colunas
         const fd = new FormData();
         fd.set("boardId", boardId);
         fd.set("columnIds", JSON.stringify(next.map((c) => c.id)));
@@ -127,7 +161,7 @@ export function Kanban({
       const activeId = String(active.id);
       const overId = String(over.id);
 
-      // Caso 1: soltar em coluna vazia (over = "drop-{columnId}")
+      // Caso 1: soltar em coluna vazia
       if (overId.startsWith("drop-")) {
         const toColumnId = overId.replace("drop-", "");
         const fromColIdx = columns.findIndex((col) =>
@@ -192,6 +226,7 @@ export function Kanban({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
       {/* SortableContext para COLUNAS */}
@@ -281,6 +316,30 @@ export function Kanban({
           ))}
         </div>
       </SortableContext>
+
+      {/* GHOST/OVERLAY */}
+      <DragOverlay dropAnimation={null}>
+        {activeDrag?.type === "column" ? (
+          <div className="w-80 shrink-0 rounded-lg border bg-card p-3 shadow-xl opacity-90">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="truncate font-semibold">{activeDrag.title}</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="h-12 rounded-md border bg-background/60" />
+              <div className="h-12 rounded-md border bg-background/60" />
+            </div>
+          </div>
+        ) : activeDrag?.type === "card" ? (
+          <div className="rounded-md border bg-background p-3 text-sm shadow-xl opacity-90">
+            <div className="font-medium truncate">{activeDrag.title}</div>
+            {activeDrag.description && (
+              <p className="mt-1 text-muted-foreground line-clamp-3">
+                {activeDrag.description}
+              </p>
+            )}
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
@@ -297,7 +356,7 @@ function ColumnDropZone({
   return <div ref={setNodeRef}>{children}</div>;
 }
 
-/* ---------- Sortable Column (com "data" para identificar tipo) ---------- */
+/* ---------- Sortable Column ---------- */
 function SortableColumn({
   id,
   title,
@@ -333,7 +392,6 @@ function SortableColumn({
         <h3 className="truncate font-semibold">{title}</h3>
 
         <div className="flex items-center gap-1">
-          {/* Renomear coluna */}
           <RenameColumnDialog
             boardId={boardId}
             columnId={id}
@@ -350,8 +408,6 @@ function SortableColumn({
               </Button>
             }
           />
-
-          {/* Excluir coluna */}
           <DeleteColumnDialog
             boardId={boardId}
             columnId={id}
@@ -376,7 +432,7 @@ function SortableColumn({
   );
 }
 
-/* ---------- Sortable Card (com "data" para identificar tipo) ---------- */
+/* ---------- Sortable Card ---------- */
 function SortableCard({
   id,
   children,
@@ -400,6 +456,7 @@ function SortableCard({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
+    cursor: isDragging ? "grabbing" : undefined, // toque de UX
   };
 
   return (
@@ -416,7 +473,7 @@ function normalize(cols: ColumnDTO[]): ColumnDTO[] {
     .sort((a, b) => a.index - b.index)
     .map((c) => ({
       ...c,
-      index: c.index, // mantém índice vindo do server
+      index: c.index,
       cards: c.cards.slice().sort((x, y) => x.index - y.index),
     }));
 }

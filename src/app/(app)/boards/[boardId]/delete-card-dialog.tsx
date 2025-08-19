@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteCard } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -34,15 +35,15 @@ export function DeleteCardDialog({
     fd.set("boardId", boardId);
     fd.set("cardId", cardId);
 
-    const loadingId = toast.loading("Excluindo card…");
+    const id = toast.loading("Excluindo card…");
     const res = await deleteCard({ ok: false }, fd);
 
     if (res.ok) {
-      toast.success(`Card “${cardTitle}” excluído!`, { id: loadingId });
       setOpen(false);
-      setTimeout(() => router.refresh(), 120);
+      toast.success(`Card “${cardTitle}” excluído!`, { id });
+      setTimeout(() => router.refresh(), 400);
     } else {
-      toast.error(res.error ?? "Falha ao excluir o card.", { id: loadingId });
+      toast.error(res.error ?? "Falha ao excluir o card.", { id });
     }
   }
 
@@ -61,7 +62,14 @@ export function DeleteCardDialog({
               Cancelar
             </AlertDialogCancel>
             <Button type="submit" variant="destructive" disabled={isPending}>
-              {isPending ? "Excluindo..." : "Excluir"}
+              {isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Excluindo…
+                </span>
+              ) : (
+                "Excluir"
+              )}
             </Button>
           </AlertDialogFooter>
         </form>
