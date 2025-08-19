@@ -9,8 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, UserPlus } from "lucide-react";
 import { listMembers } from "./actions";
+import { InviteDialog } from "./invite-dialog";
 
 export default async function MembersPage() {
   // Verifica se o usuário está autenticado
@@ -50,7 +52,7 @@ export default async function MembersPage() {
   let members: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     role: Role;
     membershipId: string;
   }[] = [];
@@ -77,11 +79,23 @@ export default async function MembersPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Membros</h1>
-        <p className="text-muted-foreground">
-          Gerencie os membros da sua organização
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Membros</h1>
+          <p className="text-muted-foreground">
+            Gerencie os membros da sua organização
+          </p>
+        </div>
+        {canManage && (
+          <InviteDialog
+            trigger={
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar membro
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <Card>
@@ -115,7 +129,7 @@ export default async function MembersPage() {
                     (member: {
                       id: string;
                       name: string;
-                      email: string;
+                      email: string | null;
                       role: Role;
                       membershipId: string;
                     }) => (

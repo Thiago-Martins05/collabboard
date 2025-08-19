@@ -29,7 +29,7 @@ import {
 interface Member {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   role: Role;
   membershipId: string;
 }
