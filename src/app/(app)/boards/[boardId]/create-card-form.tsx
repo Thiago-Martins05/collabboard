@@ -1,78 +1,99 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
-import { toast } from "sonner";
-import { createCard, type ActionState } from "./actions";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // ✅ precisa do componente do shadcn
+import * as React from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-export function CreateCardForm({
-  boardId,
-  columnId,
-}: {
-  boardId: string;
-  columnId: string;
-}) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
-    createCard,
-    { ok: false }
-  );
-  const [isPending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, Plus } from "lucide-react";
+
+import { createCard } from "./actions";
+
+// schema
+const schema = z.object({
+  title: z.string().min(1, "Informe o título"),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+export function CreateCardForm({ columnId }: { columnId: string }) {
   const router = useRouter();
 
-  useEffect(() => {
+  const [state, formAction] = React.useActionState(createCard, {
+    ok: false,
+    error: undefined as string | undefined,
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { title: "" },
+  });
+
+  const [isPending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
     if (state?.ok) {
       toast.success("Card criado!");
-      formRef.current?.reset();
       router.refresh();
+      reset({ title: "" });
     } else if (state?.error) {
       toast.error(state.error);
     }
-  }, [state, router]);
+  }, [state, router, reset]);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    fd.set("boardId", boardId);
+  function onSubmit(values: FormValues) {
+    const fd = new FormData();
+    fd.set("title", values.title.trim());
     fd.set("columnId", columnId);
-    startTransition(() => formAction(fd));
+
+    startTransition(async () => {
+      const id = toast.loading("Criando card…");
+      const res = await formAction(fd);
+      if (res?.ok) toast.success("Card criado com sucesso!", { id });
+      else toast.error(res?.error ?? "Erro ao criar card", { id });
+    });
   }
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} className="space-y-2">
-      <div className="space-y-1">
-        <Label htmlFor={`new-card-title-${columnId}`}>Título</Label>
+    <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-2">
+      <div className="flex-1">
+        <Label htmlFor={`title-${columnId}`}>Novo Card</Label>
         <Input
-          id={`new-card-title-${columnId}`}
-          name="title"
-          placeholder="Adicionar card…"
-          required
+          id={`title-${columnId}`}
+          placeholder="Ex.: Implementar API"
           disabled={isPending}
+          {...register("title")}
         />
+        {errors.title && (
+          <p className="mt-1 text-xs text-destructive">
+            {errors.title.message}
+          </p>
+        )}
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor={`new-card-desc-${columnId}`}>
-          Descrição (opcional)
-        </Label>
-        <Textarea
-          id={`new-card-desc-${columnId}`}
-          name="description"
-          placeholder="Detalhes do card…"
-          rows={3}
-          disabled={isPending}
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Criando..." : "Adicionar"}
-        </Button>
-      </div>
+      <Button type="submit" disabled={isPending}>
+        {isPending ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Criando…
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </span>
+        )}
+      </Button>
     </form>
   );
 }

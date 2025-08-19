@@ -1,50 +1,100 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useTransition } from "react";
+import * as React from "react";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { createColumn, type ActionState } from "./actions";
-import { Input } from "@/components/ui/input";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2, Plus } from "lucide-react";
 
-export function CreateColumnForm({ boardId }: { boardId: string }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
-    createColumn,
-    { ok: false }
-  );
-  const [isPending, startTransition] = useTransition();
-  const formRef = useRef<HTMLFormElement>(null);
+import { createColumn } from "./actions";
 
-  useEffect(() => {
+// schema
+const schema = z.object({
+  title: z.string().min(1, "Informe um título"),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+export function CreateColumnForm() {
+  const router = useRouter();
+  const params = useParams();
+  const boardId = params.boardId as string;
+
+  const [state, formAction] = React.useActionState(createColumn, {
+    ok: false,
+    error: undefined as string | undefined,
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { title: "" },
+  });
+
+  const [isPending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
     if (state?.ok) {
       toast.success("Coluna criada!");
-      formRef.current?.reset();
+      router.refresh();
+      reset({ title: "" });
     } else if (state?.error) {
       toast.error(state.error);
     }
-  }, [state]);
+  }, [state, router, reset]);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+  function onSubmit(values: FormValues) {
+    const fd = new FormData();
+    fd.set("title", values.title.trim());
     fd.set("boardId", boardId);
-    startTransition(() => formAction(fd));
+
+    startTransition(async () => {
+      const id = toast.loading("Criando coluna…");
+      const res = await formAction(fd);
+      if (res?.ok) toast.success("Coluna criada com sucesso!", { id });
+      else toast.error(res?.error ?? "Erro ao criar coluna", { id });
+    });
   }
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} className="flex items-end gap-2">
-      <div className="flex-1 space-y-1">
-        <Label htmlFor="new-column-title">Nova coluna</Label>
+    <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-2">
+      <div className="flex-1">
+        <Label htmlFor="title">Nova Coluna</Label>
         <Input
-          id="new-column-title"
-          name="title"
+          id="title"
           placeholder="Ex.: A fazer"
-          required
           disabled={isPending}
+          {...register("title")}
         />
+        {errors.title && (
+          <p className="mt-1 text-xs text-destructive">
+            {errors.title.message}
+          </p>
+        )}
       </div>
+
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Adicionando..." : "Adicionar coluna"}
+        {isPending ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Criando…
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </span>
+        )}
       </Button>
     </form>
   );

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ensureUserPrimaryOrganization } from "@/lib/tenant";
 import { ensureOwnerMembership } from "@/lib/rbac";
-import CreateBoardForm from "./create-board-form";
+import { CreateBoardForm } from "./create-board-form";
 import { DeleteBoardButton } from "./delete-board-button";
 
 type Search = {

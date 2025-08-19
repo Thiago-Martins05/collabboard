@@ -1,10 +1,10 @@
-// src/app/(app)/boards/[boardId]/kanban.tsx
 "use client";
 
 import * as React from "react";
 import {
   DndContext,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -17,6 +17,7 @@ import {
   useSortable,
   rectSortingStrategy,
   arrayMove,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -61,7 +62,6 @@ export function Kanban({
     normalize(initialColumns)
   );
 
-  // estado para desenhar o ghost no DragOverlay
   const [activeDrag, setActiveDrag] = React.useState<
     | { type: "column"; id: string; title: string }
     | { type: "card"; id: string; title: string; description?: string | null }
@@ -74,12 +74,12 @@ export function Kanban({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const columnIds = React.useMemo(() => columns.map((c) => c.id), [columns]);
 
-  // inicia o ghost conforme item
   const onDragStart = React.useCallback(
     ({ active }: any) => {
       const t = active?.data?.current?.type as "column" | "card" | undefined;
@@ -109,7 +109,7 @@ export function Kanban({
   const onDragEnd = React.useCallback(
     (evt: DragEndEvent) => {
       const { active, over } = evt;
-      setActiveDrag(null); // limpa o ghost
+      setActiveDrag(null);
       if (!over) return;
 
       const activeType = active.data?.current?.type as
@@ -121,7 +121,7 @@ export function Kanban({
         | "card"
         | undefined;
 
-      // =============== COLUNAS ===============
+      // ===== COLUNAS =====
       if (activeType === "column" && overType === "column") {
         const activeId = String(active.id);
         const overId = String(over.id);
@@ -157,11 +157,11 @@ export function Kanban({
         return;
       }
 
-      // =============== CARDS ===============
+      // ===== CARDS =====
       const activeId = String(active.id);
       const overId = String(over.id);
 
-      // Caso 1: soltar em coluna vazia
+      // drop em coluna vazia
       if (overId.startsWith("drop-")) {
         const toColumnId = overId.replace("drop-", "");
         const fromColIdx = columns.findIndex((col) =>
@@ -186,7 +186,7 @@ export function Kanban({
         return;
       }
 
-      // Caso 2: card sobre card
+      // card sobre card
       const fromColIdx = columns.findIndex((col) =>
         col.cards.some((c) => c.id === activeId)
       );
@@ -231,7 +231,11 @@ export function Kanban({
     >
       {/* SortableContext para COLUNAS */}
       <SortableContext items={columnIds} strategy={rectSortingStrategy}>
-        <div className="flex flex-wrap gap-4 pb-2">
+        <div
+          role="list"
+          aria-label="Quadro Kanban: colunas"
+          className="flex flex-wrap gap-4 pb-2"
+        >
           {columns.map((col) => (
             <SortableColumn
               key={col.id}
@@ -246,70 +250,89 @@ export function Kanban({
                   items={col.cards.map((c) => c.id)}
                   strategy={rectSortingStrategy}
                 >
-                  <div className="space-y-2">
-                    {col.cards.map((card) => (
-                      <SortableCard key={card.id} id={card.id}>
-                        <div className="rounded-md border bg-background p-3 text-sm group">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">
-                                {card.title}
+                  <div
+                    role="list"
+                    aria-label={`Cards da coluna ${col.title}`}
+                    className="space-y-2"
+                  >
+                    {col.cards.length === 0 ? (
+                      <div
+                        aria-label="Sem cards nesta coluna"
+                        className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground"
+                      >
+                        Arraste cards para cá ou crie um novo abaixo
+                      </div>
+                    ) : (
+                      col.cards.map((card) => (
+                        <SortableCard key={card.id} id={card.id}>
+                          <div
+                            role="article"
+                            aria-roledescription="Card"
+                            aria-label={card.title}
+                            className="rounded-lg border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 text-sm group focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 hover:shadow-md"
+                            tabIndex={0}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">
+                                  {card.title}
+                                </div>
+                                {card.description && (
+                                  <p className="mt-1 text-muted-foreground line-clamp-3">
+                                    {card.description}
+                                  </p>
+                                )}
                               </div>
-                              {card.description && (
-                                <p className="mt-1 text-muted-foreground line-clamp-3">
-                                  {card.description}
-                                </p>
-                              )}
-                            </div>
 
-                            <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                              {/* Editar card */}
-                              <RenameCardDialog
-                                boardId={boardId}
-                                cardId={card.id}
-                                currentTitle={card.title}
-                                currentDescription={card.description}
-                                trigger={
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={(e) => e.stopPropagation()}
-                                    aria-label="Editar card"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                }
-                              />
+                              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                {/* Editar card */}
+                                <RenameCardDialog
+                                  boardId={boardId}
+                                  cardId={card.id}
+                                  currentTitle={card.title}
+                                  currentDescription={card.description}
+                                  trigger={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => e.stopPropagation()}
+                                      aria-label={`Renomear card ${card.title}`}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  }
+                                />
 
-                              {/* Excluir card */}
-                              <DeleteCardDialog
-                                boardId={boardId}
-                                cardId={card.id}
-                                cardTitle={card.title}
-                                trigger={
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={(e) => e.stopPropagation()}
-                                    aria-label="Excluir card"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                }
-                              />
+                                {/* Excluir card */}
+                                <DeleteCardDialog
+                                  boardId={boardId}
+                                  cardId={card.id}
+                                  cardTitle={card.title}
+                                  trigger={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => e.stopPropagation()}
+                                      aria-label={`Excluir card ${card.title}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  }
+                                />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </SortableCard>
-                    ))}
+                        </SortableCard>
+                      ))
+                    )}
                   </div>
                 </SortableContext>
 
                 {/* Form de novo card */}
                 <div className="mt-4">
-                  <CreateCardForm boardId={boardId} columnId={col.id} />
+                  <CreateCardForm columnId={col.id} />
                 </div>
               </ColumnDropZone>
             </SortableColumn>
@@ -317,10 +340,10 @@ export function Kanban({
         </div>
       </SortableContext>
 
-      {/* GHOST/OVERLAY */}
+      {/* GHOST/OVERLAY com skin */}
       <DragOverlay dropAnimation={null}>
         {activeDrag?.type === "column" ? (
-          <div className="w-80 shrink-0 rounded-lg border bg-card p-3 shadow-xl opacity-90">
+          <div className="w-80 shrink-0 rounded-xl border bg-card/95 p-3 shadow-2xl opacity-90">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="truncate font-semibold">{activeDrag.title}</h3>
             </div>
@@ -330,7 +353,7 @@ export function Kanban({
             </div>
           </div>
         ) : activeDrag?.type === "card" ? (
-          <div className="rounded-md border bg-background p-3 text-sm shadow-xl opacity-90">
+          <div className="rounded-lg border bg-background/95 p-3 text-sm shadow-2xl opacity-90">
             <div className="font-medium truncate">{activeDrag.title}</div>
             {activeDrag.description && (
               <p className="mt-1 text-muted-foreground line-clamp-3">
@@ -344,7 +367,7 @@ export function Kanban({
   );
 }
 
-/* ---------- Zona droppable para colunas vazias ---------- */
+/* ---------- Zona droppable com highlight ---------- */
 function ColumnDropZone({
   columnId,
   children,
@@ -352,11 +375,22 @@ function ColumnDropZone({
   columnId: string;
   children: React.ReactNode;
 }) {
-  const { setNodeRef } = useDroppable({ id: `drop-${columnId}` });
-  return <div ref={setNodeRef}>{children}</div>;
+  const { setNodeRef, isOver } = useDroppable({ id: `drop-${columnId}` });
+  return (
+    <div
+      ref={setNodeRef}
+      role="group"
+      aria-label="Área de soltar cards"
+      className={
+        isOver ? "ring-2 ring-primary/40 rounded-md transition-all" : undefined
+      }
+    >
+      {children}
+    </div>
+  );
 }
 
-/* ---------- Sortable Column ---------- */
+/* ---------- Sortable Column com skin ---------- */
 function SortableColumn({
   id,
   title,
@@ -368,11 +402,17 @@ function SortableColumn({
   boardId: string;
   children: React.ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({
-      id,
-      data: { type: "column" as const, columnId: id },
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id,
+    data: { type: "column" as const, columnId: id },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -385,7 +425,17 @@ function SortableColumn({
       style={style}
       {...attributes}
       {...listeners}
-      className="w-80 shrink-0 rounded-lg border bg-card p-3"
+      role="region"
+      aria-roledescription="Coluna do Kanban"
+      aria-label={title}
+      aria-grabbed={isDragging || undefined}
+      tabIndex={0}
+      className={[
+        "w-80 shrink-0 rounded-xl border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 p-3",
+        "focus:outline-none focus:ring-2 focus:ring-ring",
+        "shadow-sm transition-all duration-150 hover:shadow-md",
+        isDragging ? "scale-[.98] shadow-md" : "",
+      ].join(" ")}
     >
       {/* Header da coluna com ações */}
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -402,7 +452,7 @@ function SortableColumn({
                 variant="ghost"
                 size="icon"
                 onClick={(e) => e.stopPropagation()}
-                aria-label="Renomear coluna"
+                aria-label={`Renomear coluna ${title}`}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -418,7 +468,7 @@ function SortableColumn({
                 variant="ghost"
                 size="icon"
                 onClick={(e) => e.stopPropagation()}
-                aria-label="Excluir coluna"
+                aria-label={`Excluir coluna ${title}`}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -432,7 +482,7 @@ function SortableColumn({
   );
 }
 
-/* ---------- Sortable Card ---------- */
+/* ---------- Sortable Card com skin ---------- */
 function SortableCard({
   id,
   children,
@@ -455,12 +505,19 @@ function SortableCard({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : 1,
-    cursor: isDragging ? "grabbing" : undefined, // toque de UX
+    cursor: isDragging ? "grabbing" : undefined,
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      aria-grabbed={isDragging || undefined}
+      tabIndex={0}
+      className={isDragging ? "scale-[.99] opacity-90" : ""}
+    >
       {children}
     </div>
   );

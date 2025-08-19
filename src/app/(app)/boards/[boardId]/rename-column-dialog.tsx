@@ -1,21 +1,32 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
-import { toast } from "sonner";
-import { renameColumn, type ActionState } from "./actions";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
+
 import {
   AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+
+import { renameColumn } from "./actions";
+
+const schema = z.object({
+  title: z.string().min(1, "Informe um título"),
+});
+type FormValues = z.infer<typeof schema>;
 
 export function RenameColumnDialog({
   boardId,
@@ -28,74 +39,80 @@ export function RenameColumnDialog({
   currentTitle: string;
   trigger: React.ReactNode;
 }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
-    renameColumn,
-    { ok: false }
-  );
-  const [isPending, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState(currentTitle);
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  // sempre que abrir, sincroniza o título atual
-  useEffect(() => {
-    if (open) setTitle(currentTitle);
-  }, [open, currentTitle]);
+  const [state, formAction] = useState<{ ok: boolean; error?: string }>({
+    ok: false,
+    error: undefined,
+  });
 
-  // responde ao resultado da action (sem depender do "open")
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { title: currentTitle },
+  });
+
   useEffect(() => {
-    if (state?.ok) {
-      toast.success("Coluna renomeada!");
-      setOpen(false); // fecha somente quando OK
-      router.refresh();
-    } else if (state?.error) {
-      toast.error(state.error);
-      // mantém aberto para o usuário corrigir
+    if (open) {
+      form.reset({ title: currentTitle });
     }
-  }, [state, router]);
+  }, [open, currentTitle, form]);
+
+  async function onSubmit(values: FormValues) {
+    const fd = new FormData();
+    fd.set("boardId", boardId);
+    fd.set("columnId", columnId);
+    fd.set("title", values.title.trim());
+
+    startTransition(async () => {
+      const id = toast.loading("Renomeando…");
+      const res = await renameColumn({ ok: false }, fd);
+      if (res.ok) {
+        setOpen(false);
+        toast.success("Coluna renomeada!", { id });
+        setTimeout(() => router.refresh(), 350);
+      } else {
+        toast.error(res.error ?? "Falha ao renomear.", { id });
+      }
+      // só para manter compatibilidade caso você use esse state em outro ponto:
+      form.reset({ title: values.title.trim() });
+    });
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-
-      <AlertDialogContent
-        key={open ? "open" : "closed"} // força remount limpinho a cada abertura
-        onPointerDownOutside={(e) => e.preventDefault()} // evita fechar sem querer
-      >
+      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
         <AlertDialogHeader>
           <AlertDialogTitle>Renomear coluna</AlertDialogTitle>
         </AlertDialogHeader>
 
-        <form
-          action={(fd) => {
-            fd.set("boardId", boardId);
-            fd.set("columnId", columnId);
-            fd.set("title", title);
-            startTransition(() => formAction(fd));
-          }}
-          className="space-y-3"
-        >
-          <div className="space-y-1">
-            <Label htmlFor={`rename-col-${columnId}`}>Novo título</Label>
-            <Input
-              id={`rename-col-${columnId}`}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              minLength={2}
-              maxLength={80}
-              disabled={isPending}
-              autoFocus
-            />
-          </div>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+          <Input
+            placeholder="Título"
+            disabled={isPending}
+            {...form.register("title")}
+          />
+          {form.formState.errors.title && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.title.message}
+            </p>
+          )}
 
-          <AlertDialogFooter>
+          <AlertDialogFooter className="mt-2">
             <AlertDialogCancel type="button" disabled={isPending}>
               Cancelar
             </AlertDialogCancel>
-            {/* 👉 Button normal, NÃO fecha o dialog automaticamente */}
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Salvando..." : "Salvar"}
+              {isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Salvando…
+                </span>
+              ) : (
+                "Salvar"
+              )}
             </Button>
           </AlertDialogFooter>
         </form>
