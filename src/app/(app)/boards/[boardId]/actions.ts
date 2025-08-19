@@ -134,3 +134,110 @@ export async function createCard(
     return { ok: false, error: "Falha ao criar o card." };
   }
 }
+
+const renameColumnSchema = z.object({
+  boardId: z.string().min(1),
+  columnId: z.string().min(1),
+  title: z.string().min(2, "Informe um título (mín. 2).").max(80),
+});
+
+export async function renameColumn(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
+
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = renameColumnSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      columnId: (formData.get("columnId") as string) ?? "",
+      title: (formData.get("title") as string) ?? "",
+    });
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+      };
+    }
+    const { boardId, columnId, title } = parsed.data;
+
+    const column = await db.column.findUnique({
+      where: { id: columnId },
+      include: { board: true },
+    });
+    if (
+      !column ||
+      column.boardId !== boardId ||
+      column.board.organizationId !== org.id
+    ) {
+      return { ok: false, error: "Coluna não encontrada." };
+    }
+
+    await db.column.update({
+      where: { id: columnId },
+      data: { title: title.trim() },
+    });
+
+    revalidatePath(`/boards/${boardId}`);
+    return { ok: true };
+  } catch (e) {
+    console.error("renameColumn error:", e);
+    return { ok: false, error: "Falha ao renomear a coluna." };
+  }
+}
+
+const deleteColumnSchema = z.object({
+  boardId: z.string().min(1),
+  columnId: z.string().min(1),
+});
+
+export async function deleteColumn(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const session = await getSession();
+    if (!session?.user?.email)
+      return { ok: false, error: "Você precisa estar autenticado." };
+
+    const org = await ensureUserPrimaryOrganization();
+    if (!org?.id) return { ok: false, error: "Organização não encontrada." };
+
+    const parsed = deleteColumnSchema.safeParse({
+      boardId: (formData.get("boardId") as string) ?? "",
+      columnId: (formData.get("columnId") as string) ?? "",
+    });
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+      };
+    }
+    const { boardId, columnId } = parsed.data;
+
+    const column = await db.column.findUnique({
+      where: { id: columnId },
+      include: { board: true },
+    });
+    if (
+      !column ||
+      column.boardId !== boardId ||
+      column.board.organizationId !== org.id
+    ) {
+      return { ok: false, error: "Coluna não encontrada." };
+    }
+
+    await db.column.delete({ where: { id: columnId } });
+
+    revalidatePath(`/boards/${boardId}`);
+    return { ok: true };
+  } catch (e) {
+    console.error("deleteColumn error:", e);
+    return { ok: false, error: "Falha ao excluir a coluna." };
+  }
+}
