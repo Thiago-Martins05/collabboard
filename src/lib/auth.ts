@@ -21,11 +21,14 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      try {
-        await ensureUserPrimaryOrganization();
-      } catch (e) {
-        console.error("ensureUserPrimaryOrganization(signIn) failed:", e);
+    async signIn({ user, account, profile }) {
+      // Permite múltiplas contas OAuth para o mesmo email
+      if (account && profile) {
+        try {
+          await ensureUserPrimaryOrganization();
+        } catch (e) {
+          console.error("ensureUserPrimaryOrganization(signIn) failed:", e);
+        }
       }
       return true;
     },

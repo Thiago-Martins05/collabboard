@@ -40,7 +40,14 @@ export default function SignInPage() {
 
             <div className="grid gap-4">
               <Button
-                onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+                onClick={() => {
+                  console.log("🔍 Tentando login com GitHub...");
+                  signIn("github", { callbackUrl: "/dashboard" }).catch(
+                    (error) => {
+                      console.error("❌ Erro no login GitHub:", error);
+                    }
+                  );
+                }}
                 className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white"
                 size="lg"
               >

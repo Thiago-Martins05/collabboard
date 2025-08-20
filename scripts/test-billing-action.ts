@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { createCheckoutSession } from "@/app/(app)/billing/actions";
+import { createCheckoutSession } from "../src/app/(app)/billing/actions";
 
 // Carrega as variáveis de ambiente
 config({ path: ".env" });
@@ -8,19 +8,25 @@ async function testBillingAction() {
   console.log("🧪 Testando action de billing...\n");
 
   try {
-    // Testar criação de sessão de checkout
-    console.log("🛒 Testando criação de sessão de checkout...");
-    const result = await createCheckoutSession("test-org-id", "PRO");
+    // Teste com uma organização de exemplo
+    const organizationId = "test-org-id";
+    const plan = "PRO";
 
-    console.log("Resultado:", result);
+    console.log("📋 Parâmetros:", { organizationId, plan });
+
+    const result = await createCheckoutSession(organizationId, plan);
+
+    console.log("📤 Resultado:", result);
 
     if (result.error) {
       console.log("❌ Erro:", result.error);
     } else if (result.url) {
-      console.log("✅ URL do checkout:", result.url);
+      console.log("✅ URL gerada:", result.url);
+    } else {
+      console.log("⚠️ Nenhum resultado retornado");
     }
   } catch (error) {
-    console.error("❌ Erro ao testar action:", error);
+    console.error("❌ Erro ao testar billing action:", error);
   }
 }
 

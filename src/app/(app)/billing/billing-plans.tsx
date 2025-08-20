@@ -31,19 +31,31 @@ export function BillingPlans({
   const handleUpgrade = async (plan: string) => {
     if (plan === currentPlan) return;
 
+    console.log("🔧 Iniciando upgrade para:", plan);
+    console.log("📋 Dados:", { organizationId, currentPlan, plan });
+
     setIsLoading(plan);
     try {
+      console.log("🔄 Chamando createCheckoutSession...");
       const { url, error } = await createCheckoutSession(organizationId, plan);
+
+      console.log("📤 Resposta:", { url, error });
+
       if (error) {
+        console.error("❌ Erro retornado:", error);
         toast.error(error);
         return;
       }
       if (url) {
+        console.log("✅ Redirecionando para:", url);
         window.location.href = url;
+      } else {
+        console.error("❌ Nenhuma URL retornada");
+        toast.error("Erro: nenhuma URL de checkout foi gerada");
       }
     } catch (error) {
+      console.error("❌ Erro ao criar checkout session:", error);
       toast.error("Erro ao criar sessão de checkout");
-      console.error("Checkout error:", error);
     } finally {
       setIsLoading(null);
     }
