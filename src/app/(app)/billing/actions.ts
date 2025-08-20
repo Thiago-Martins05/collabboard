@@ -104,8 +104,8 @@ export async function createCheckoutSession(
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.NEXTAUTH_URL}/billing?success=true`,
-      cancel_url: `${process.env.NEXTAUTH_URL}/billing?canceled=true`,
+      success_url: `http://localhost:3000/billing?success=true`,
+      cancel_url: `http://localhost:3000/billing?canceled=true`,
       metadata: {
         organizationId,
       },
