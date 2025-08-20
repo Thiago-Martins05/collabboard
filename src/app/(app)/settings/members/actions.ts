@@ -9,6 +9,7 @@ import {
   requireSession,
   assertOwnerOrAdmin,
 } from "@/lib/rbac-guard";
+import { enforceFeatureLimit } from "@/lib/limits";
 import { Role } from "@prisma/client";
 import { randomUUID } from "crypto";
 
@@ -230,6 +231,12 @@ export async function inviteMember(
 
     // Verifica se o usuário atual tem permissão (OWNER/ADMIN)
     await assertOwnerOrAdmin(org.id);
+
+    // Verifica se não excedeu o limite de membros
+    const canInvite = await enforceFeatureLimit(org.id, "members");
+    if (!canInvite) {
+      return { ok: false, error: "Limite de membros atingido no plano Free." };
+    }
 
     // Verifica se o e-mail já é membro
     const existingUser = await db.user.findUnique({

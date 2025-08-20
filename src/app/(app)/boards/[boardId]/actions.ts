@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 import { publishEvent } from "@/lib/realtime";
+import { enforceFeatureLimit } from "@/lib/limits";
 
 /** Helpers de validação */
 const createColumnSchema = z.object({
@@ -70,6 +71,15 @@ export async function createColumn(
     // Verifica se o usuário é membro da organização
     await requireMembership(board.organizationId);
 
+    // Verifica se não excedeu o limite de colunas
+    const canCreate = await enforceFeatureLimit(
+      board.organizationId,
+      "columns"
+    );
+    if (!canCreate) {
+      return { ok: false, error: "Limite de colunas atingido no plano Free." };
+    }
+
     const count = await db.column.count({ where: { boardId } });
 
     const column = await db.column.create({
@@ -130,6 +140,15 @@ export async function createCard(
 
     // Verifica se o usuário é membro da organização
     await requireMembership(column.board.organizationId);
+
+    // Verifica se não excedeu o limite de cards
+    const canCreate = await enforceFeatureLimit(
+      column.board.organizationId,
+      "cards"
+    );
+    if (!canCreate) {
+      return { ok: false, error: "Limite de cards atingido no plano Free." };
+    }
 
     const count = await db.card.count({ where: { columnId } });
 

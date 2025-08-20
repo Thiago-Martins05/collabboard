@@ -4,18 +4,23 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
+import { enforceFeatureLimit } from "@/lib/limits";
 
 const createLabelSchema = z.object({
   boardId: z.string().min(1),
   name: z.string().min(1, "Nome é obrigatório").max(50, "Máximo 50 caracteres"),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
+  color: z
+    .string()
+    .regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
 });
 
 const updateLabelSchema = z.object({
   boardId: z.string().min(1),
   labelId: z.string().min(1),
   name: z.string().min(1, "Nome é obrigatório").max(50, "Máximo 50 caracteres"),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
+  color: z
+    .string()
+    .regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
 });
 
 const deleteLabelSchema = z.object({
@@ -59,6 +64,12 @@ export async function createLabel(
     }
 
     await requireMembership(board.organizationId);
+
+    // Verifica se não excedeu o limite de labels
+    const canCreate = await enforceFeatureLimit(board.organizationId, "labels");
+    if (!canCreate) {
+      return { ok: false, error: "Limite de labels atingido no plano Free." };
+    }
 
     // Verifica se já existe uma label com o mesmo nome no board
     const existingLabel = await db.label.findFirst({

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 import { getSession } from "@/lib/session";
+import { enforceFeatureLimit } from "@/lib/limits";
 import { z } from "zod";
 
 /* ============ CREATE ============ */
@@ -48,6 +49,12 @@ export async function createBoard(
 
     // Verifica se o usuário é membro da organização
     await requireMembership(org.id);
+
+    // Verifica se não excedeu o limite de boards
+    const canCreate = await enforceFeatureLimit(org.id, "boards");
+    if (!canCreate) {
+      return { ok: false, error: "Limite de boards atingido no plano Free." };
+    }
 
     await db.board.create({
       data: {

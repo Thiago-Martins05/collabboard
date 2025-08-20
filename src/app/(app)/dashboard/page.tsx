@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ensureUserPrimaryOrganization } from "@/lib/tenant";
 import { ensureOwnerMembership } from "@/lib/rbac";
+import { getOrganizationUsage } from "@/lib/limits";
+import { LimitsBanner } from "@/components/limits-banner";
 import { CreateBoardForm } from "./create-board-form";
 import { DeleteBoardButton } from "./delete-board-button";
 
@@ -47,6 +49,9 @@ export default async function DashboardPage({
     include: { columns: true },
   });
 
+  // Obtém estatísticas de uso da organização
+  const usage = org?.id ? await getOrganizationUsage(org.id) : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -55,6 +60,22 @@ export default async function DashboardPage({
           <span className="text-sm text-muted-foreground">Org: {org.name}</span>
         )}
       </div>
+
+      {/* Banner de limites */}
+      {usage && (
+        <>
+          <LimitsBanner
+            feature="boards"
+            current={usage.boards.current}
+            max={usage.boards.max}
+          />
+          <LimitsBanner
+            feature="membros"
+            current={usage.members.current}
+            max={usage.members.max}
+          />
+        </>
+      )}
 
       {/* Criar novo board */}
       <CreateBoardForm />
