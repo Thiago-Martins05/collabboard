@@ -154,10 +154,6 @@ export async function checkFeatureLimit(
   // Se current >= max, não permite criar mais
   const allowed = current < max;
 
-  console.log(
-    `🔍 DEBUG - Feature: ${feature}, Current: ${current}, Max: ${max}, Allowed: ${allowed}`
-  );
-
   return {
     allowed,
     current,

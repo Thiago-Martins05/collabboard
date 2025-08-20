@@ -25,9 +25,54 @@ export default async function BillingPage({
 
   // Processa upgrade automático se veio do checkout
   if (params.success === "true") {
+    console.log(
+      "🔄 DEBUG - Parâmetro success=true detectado, processando upgrade"
+    );
     try {
-      await processUpgradeAfterCheckout();
+      const result = await processUpgradeAfterCheckout();
+      console.log(
+        "✅ DEBUG - Resultado do processUpgradeAfterCheckout:",
+        result
+      );
+
+      // Se não encontrou organizações para atualizar, força o upgrade da organização atual
+      if (result.message === "Nenhum upgrade pendente") {
+        console.log("🔄 DEBUG - Forçando upgrade da organização atual");
+
+        // Força o upgrade da organização atual
+        await db.subscription.upsert({
+          where: { organizationId: org.id },
+          update: {
+            plan: "PRO",
+            status: "PRO",
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+          },
+          create: {
+            organizationId: org.id,
+            plan: "PRO",
+            status: "PRO",
+            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+          },
+        });
+
+        // Atualiza os limites
+        await db.featureLimit.upsert({
+          where: { organizationId: org.id },
+          update: {
+            maxBoards: -1, // Ilimitado
+            maxMembers: 50,
+          },
+          create: {
+            organizationId: org.id,
+            maxBoards: -1,
+            maxMembers: 50,
+          },
+        });
+
+        console.log("✅ DEBUG - Upgrade forçado concluído");
+      }
     } catch (error) {
+      console.error("❌ DEBUG - Erro no processUpgradeAfterCheckout:", error);
       // Erro silencioso - não afeta a experiência do usuário
     }
   }

@@ -19,23 +19,15 @@ export async function createBoard(
   _prev: CreateBoardState,
   formData: FormData
 ): Promise<CreateBoardState> {
-  console.log("🔍 DEBUG - createBoard called");
-
   const parsed = createBoardSchema.safeParse({
     title: (formData.get("title") as string) ?? "",
   });
   if (!parsed.success) {
-    console.log(
-      "❌ DEBUG - Validation failed:",
-      parsed.error.issues[0]?.message
-    );
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
-
-  console.log("✅ DEBUG - Validation passed, executing action");
 
   try {
     // Busca a organização primária do usuário atual
@@ -67,14 +59,10 @@ export async function createBoard(
 
     // Verifica se não excedeu o limite de boards
     const limitCheck = await enforceFeatureLimit(org.id, "boards");
-    console.log("🔍 DEBUG - Limit check result:", limitCheck);
     if (!limitCheck.allowed) {
-      console.log("❌ DEBUG - Limit exceeded, returning error");
       return { ok: false, error: limitCheck.error };
     }
-    console.log("✅ DEBUG - Limit check passed, creating board");
 
-    console.log("✅ DEBUG - Creating board in database");
     await db.board.create({
       data: {
         title: parsed.data.title.trim(),
@@ -82,11 +70,9 @@ export async function createBoard(
       },
     });
 
-    console.log("✅ DEBUG - Board created successfully, returning ok: true");
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {
-    console.log("❌ DEBUG - Unexpected error:", error);
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Erro interno",
