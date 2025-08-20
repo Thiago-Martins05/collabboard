@@ -1,36 +1,27 @@
 "use client";
 
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import Link from "next/link";
+import { LogIn, Github, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { signIn } from "next-auth/react";
-import {
-  Github,
-  Mail,
-  Sparkles,
-  Users,
-  Zap,
-  Shield,
-  LogIn,
-} from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
+import Image from "next/image";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      toast.error("Por favor, insira seu email");
-      return;
-    }
-
     setIsLoading(true);
+
     try {
-      const result = await signIn("email-login", {
+      const result = await signIn("email", {
         email,
         name,
         callbackUrl: "/dashboard",
@@ -38,13 +29,12 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
-        toast.error("Erro ao fazer login. Tente novamente.");
-      } else if (result?.ok) {
-        toast.success("Login realizado com sucesso!");
-        window.location.href = "/dashboard";
+        toast.error("Erro ao enviar email de login");
+      } else {
+        toast.success("Email de login enviado! Verifique sua caixa de entrada.");
       }
     } catch (error) {
-      toast.error("Erro inesperado. Tente novamente.");
+      toast.error("Erro ao fazer login");
     } finally {
       setIsLoading(false);
     }
@@ -53,19 +43,25 @@ export default function SignInPage() {
   return (
     <div className="min-h-dvh bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/50 dark:bg-blue-900/20 blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-purple-100/50 dark:bg-purple-900/20 blur-3xl"></div>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/30 dark:bg-blue-900/10 blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-purple-100/30 dark:bg-purple-900/10 blur-3xl"></div>
       </div>
 
       <main className="relative min-h-dvh grid place-items-center p-6">
         <div className="w-full max-w-md">
           {/* Logo and branding */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4">
-              <Sparkles className="h-8 w-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
+              <Image
+                src="/collabboard-logo.png"
+                alt="CollabBoard Logo"
+                width={64}
+                height={64}
+                className="rounded-2xl"
+              />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-slate-200 dark:via-slate-300 dark:to-slate-400 bg-clip-text text-transparent">
               CollabBoard
             </h1>
             <p className="text-lg text-muted-foreground mt-2">
@@ -158,30 +154,9 @@ export default function SignInPage() {
                   href="/"
                   className="text-blue-600 hover:text-blue-700 underline"
                 >
-                  Voltar ao início
+                  Entre em contato
                 </Link>
               </p>
-            </div>
-          </div>
-
-          {/* Features */}
-          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-              <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Colaboração</p>
-              <p className="text-xs text-muted-foreground">
-                Trabalhe em equipe
-              </p>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-              <Zap className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Produtividade</p>
-              <p className="text-xs text-muted-foreground">Organize tarefas</p>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-              <Shield className="h-6 w-6 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Seguro</p>
-              <p className="text-xs text-muted-foreground">Dados protegidos</p>
             </div>
           </div>
         </div>

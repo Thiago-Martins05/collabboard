@@ -1,129 +1,75 @@
+import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ensureUserPrimaryOrganization } from "@/lib/tenant";
-import { db } from "@/lib/db";
-import { PLANS } from "@/lib/stripe";
+import { ensureOwnerMembership } from "@/lib/rbac";
+import { getOrganizationUsage } from "@/lib/limits";
 import { BillingPlans } from "./billing-plans";
-import { redirect } from "next/navigation";
-import { processUpgradeAfterCheckout } from "./actions";
+import { CreditCard, CheckCircle, TrendingUp } from "lucide-react";
+import Image from "next/image";
 
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; canceled?: string }>;
+  searchParams: Promise<{ success?: string }>;
 }) {
-  const params = await searchParams;
+  const sp = await searchParams;
   const session = await getSession();
-  if (!session?.user?.email) {
-    redirect("/sign-in");
-  }
+  if (!session?.user?.email) return null;
 
-  // Busca a organização do usuário
+  // 🔹 Auto-provisiona org pessoal e garante membership OWNER
   const org = await ensureUserPrimaryOrganization();
-  if (!org) {
-    redirect("/dashboard");
+  if (org?.id) {
+    await ensureOwnerMembership(org.id);
   }
 
-  // Processa upgrade automático se veio do checkout
-  if (params.success === "true") {
-    console.log(
-      "🔄 DEBUG - Parâmetro success=true detectado, processando upgrade"
-    );
-    try {
-      const result = await processUpgradeAfterCheckout();
-      console.log(
-        "✅ DEBUG - Resultado do processUpgradeAfterCheckout:",
-        result
-      );
+  // Obtém estatísticas de uso da organização
+  const usage = org?.id ? await getOrganizationUsage(org.id) : null;
 
-      // Se não encontrou organizações para atualizar, força o upgrade da organização atual
-      if (result.message === "Nenhum upgrade pendente") {
-        console.log("🔄 DEBUG - Forçando upgrade da organização atual");
-
-        // Força o upgrade da organização atual
-        await db.subscription.upsert({
-          where: { organizationId: org.id },
-          update: {
-            plan: "PRO",
-            status: "PRO",
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
-          },
-          create: {
-            organizationId: org.id,
-            plan: "PRO",
-            status: "PRO",
-            currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
-          },
-        });
-
-        // Atualiza os limites
-        await db.featureLimit.upsert({
-          where: { organizationId: org.id },
-          update: {
-            maxBoards: -1, // Ilimitado
-            maxMembers: 50,
-          },
-          create: {
-            organizationId: org.id,
-            maxBoards: -1,
-            maxMembers: 50,
-          },
-        });
-
-        console.log("✅ DEBUG - Upgrade forçado concluído");
-      }
-    } catch (error) {
-      console.error("❌ DEBUG - Erro no processUpgradeAfterCheckout:", error);
-      // Erro silencioso - não afeta a experiência do usuário
-    }
-  }
-
-  // Busca a subscription atual
-  const subscription = await db.subscription.findUnique({
-    where: { organizationId: org.id },
-  });
-
-  // Busca estatísticas de uso
-  const boards = await db.board.count({ where: { organizationId: org.id } });
-  const members = await db.membership.count({
-    where: { organizationId: org.id },
-  });
-
+  // Obtém o plano atual da subscription
+  const subscription = org?.id
+    ? await db.subscription.findUnique({
+        where: { organizationId: org.id },
+      })
+    : null;
   const currentPlan = subscription?.plan || "FREE";
-  const isPro = currentPlan === "PRO";
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Billing & Planos</h1>
-        <p className="text-muted-foreground">
-          Gerencie sua assinatura e escolha o plano ideal para sua organização.
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="relative w-12 h-12">
+            <Image
+              src="/collabboard-logo.png"
+              alt="CollabBoard Logo"
+              width={48}
+              height={48}
+              className="rounded-2xl"
+            />
+          </div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 dark:from-slate-200 dark:via-slate-300 dark:to-slate-400 bg-clip-text text-transparent">
+            Billing & Planos
+          </h1>
+        </div>
+        <p className="text-lg text-muted-foreground">
+          Gerencie sua assinatura e planos
         </p>
       </div>
 
       {/* Mensagem de sucesso após checkout */}
-      {params.success === "true" && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-green-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+      {sp?.success && (
+        <div className="rounded-2xl border border-green-200/50 bg-green-50/50 dark:bg-green-950/20 p-6 shadow-lg">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-green-800">
+            <div>
+              <h3 className="text-lg font-bold text-green-800 dark:text-green-200 mb-2">
                 Pagamento processado com sucesso!
               </h3>
-              <p className="mt-1 text-sm text-green-700">
-                Seu plano foi atualizado para PRO. As mudanças podem levar
-                alguns segundos para aparecer.
+              <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed">
+                Sua assinatura foi ativada e você agora tem acesso a todos os
+                recursos do plano Pro. Obrigado por escolher o CollabBoard!
               </p>
             </div>
           </div>
@@ -131,56 +77,87 @@ export default async function BillingPage({
       )}
 
       {/* Status atual */}
-      <div className="rounded-lg border bg-card p-6">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border bg-card/90 backdrop-blur-sm p-6 shadow-lg">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          </div>
           <div>
-            <h2 className="text-xl font-semibold">
-              Plano Atual: {PLANS[currentPlan as keyof typeof PLANS].name}
-            </h2>
+            <h3 className="text-lg font-bold text-foreground">Status atual</h3>
             <p className="text-sm text-muted-foreground">
-              {isPro ? "Assinatura ativa" : "Plano gratuito"}
+              Plano ativo e estatísticas de uso
             </p>
           </div>
-          {isPro && (
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Próxima cobrança</p>
-              <p className="font-medium">
-                {subscription?.currentPeriodEnd
-                  ? new Date(subscription.currentPeriodEnd).toLocaleDateString(
-                      "pt-BR"
-                    )
-                  : "N/A"}
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Estatísticas de uso */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="rounded-lg bg-muted p-4">
-            <p className="text-sm text-muted-foreground">Boards</p>
-            <p className="text-2xl font-bold">
-              {boards} /{" "}
-              {PLANS[currentPlan as keyof typeof PLANS].limits.boards === -1
-                ? "∞"
-                : PLANS[currentPlan as keyof typeof PLANS].limits.boards}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Plano atual */}
+          <div className="rounded-xl bg-muted/50 p-4 border border-muted/50">
+            <div className="flex items-center gap-2 mb-2">
+              <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <p className="text-sm text-muted-foreground font-medium">
+                Plano Atual
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              {currentPlan === "PRO" ? "Pro" : "Free"}
             </p>
           </div>
-          <div className="rounded-lg bg-muted p-4">
-            <p className="text-sm text-muted-foreground">Membros</p>
-            <p className="text-2xl font-bold">
-              {members} /{" "}
-              {PLANS[currentPlan as keyof typeof PLANS].limits.members}
-            </p>
-          </div>
+
+          {/* Estatísticas de uso */}
+          {usage && (
+            <>
+              <div className="rounded-xl bg-muted/50 p-4 border border-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="relative w-4 h-4">
+                    <Image
+                      src="/collabboard-logo.png"
+                      alt="CollabBoard Logo"
+                      width={16}
+                      height={16}
+                      className="rounded"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Boards
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {usage.boards.current} /{" "}
+                  {usage.boards.max < 0 ? "∞" : usage.boards.max}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-muted/50 p-4 border border-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="relative w-4 h-4">
+                    <Image
+                      src="/collabboard-logo.png"
+                      alt="CollabBoard Logo"
+                      width={16}
+                      height={16}
+                      className="rounded"
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Membros
+                  </p>
+                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {usage.members.current} /{" "}
+                  {usage.members.max < 0 ? "∞" : usage.members.max}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Planos disponíveis */}
+      {/* Planos */}
       <BillingPlans
         currentPlan={currentPlan}
-        organizationId={org.id}
-        stripeCustomerId={subscription?.stripeCustomerId}
+        organizationId={org?.id || ""}
+        stripeCustomerId={subscription?.stripeCustomerId || null}
       />
     </div>
   );
