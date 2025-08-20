@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
+import { publishEvent } from "@/lib/realtime";
 
 const reorderSchema = z.object({
   boardId: z.string().min(1),
@@ -82,6 +83,12 @@ export async function reorderCards(
           data: { columnId: u.columnId, index: u.index },
         });
       }
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "card.reordered",
+      updates,
     });
 
     return { ok: true };

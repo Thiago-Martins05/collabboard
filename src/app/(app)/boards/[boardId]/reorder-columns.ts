@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
+import { publishEvent } from "@/lib/realtime";
 
 const schema = z.object({
   boardId: z.string().min(1),
@@ -64,6 +65,12 @@ export async function reorderColumns(
           data: { index: i },
         });
       }
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "column.reordered",
+      columnIds,
     });
 
     return { ok: true };

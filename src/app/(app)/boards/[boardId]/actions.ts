@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
+import { publishEvent } from "@/lib/realtime";
 
 /** Helpers de validação */
 const createColumnSchema = z.object({
@@ -32,8 +33,6 @@ const toggleLabelSchema = z.object({
   cardId: z.string().min(1),
   labelId: z.string().min(1),
 });
-
-
 
 export type ActionState = { ok: boolean; error?: string };
 
@@ -73,11 +72,21 @@ export async function createColumn(
 
     const count = await db.column.count({ where: { boardId } });
 
-    await db.column.create({
+    const column = await db.column.create({
       data: {
         boardId,
         title: title.trim(),
         index: count, // próximo slot
+      },
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "column.created",
+      column: {
+        id: column.id,
+        title: column.title,
+        index: column.index,
       },
     });
 
@@ -124,12 +133,24 @@ export async function createCard(
 
     const count = await db.card.count({ where: { columnId } });
 
-    await db.card.create({
+    const card = await db.card.create({
       data: {
         columnId,
         title: title.trim(),
         description: (description ?? "").trim() || null,
         index: count,
+      },
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "card.created",
+      card: {
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        columnId: card.columnId,
+        index: card.index,
       },
     });
 
@@ -173,9 +194,18 @@ export async function renameColumn(
     // Verifica se o usuário é membro da organização
     await requireMembership(column.board.organizationId);
 
-    await db.column.update({
+    const updatedColumn = await db.column.update({
       where: { id: columnId },
       data: { title: title.trim() },
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "column.updated",
+      column: {
+        id: updatedColumn.id,
+        title: updatedColumn.title,
+      },
     });
 
     return { ok: true };
@@ -216,6 +246,12 @@ export async function deleteColumn(
     await requireMembership(column.board.organizationId);
 
     await db.column.delete({ where: { id: columnId } });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "column.deleted",
+      columnId,
+    });
 
     return { ok: true };
   });
@@ -271,7 +307,18 @@ export async function renameCard(
     if (description !== undefined)
       data.description = (description ?? "").trim() || null;
 
-    await db.card.update({ where: { id: cardId }, data });
+    const updatedCard = await db.card.update({ where: { id: cardId }, data });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "card.updated",
+      card: {
+        id: updatedCard.id,
+        title: updatedCard.title,
+        description: updatedCard.description,
+      },
+    });
+
     return { ok: true }; // sem revalidatePath — o client fará router.refresh()
   });
 }
@@ -312,6 +359,13 @@ export async function deleteCard(
     await requireMembership(card.column.board.organizationId);
 
     await db.card.delete({ where: { id: cardId } });
+
+    // Publica evento em tempo real
+    await publishEvent(boardId, {
+      type: "card.deleted",
+      cardId,
+    });
+
     return { ok: true }; // sem revalidatePath — o client fará router.refresh()
   });
 }
@@ -329,14 +383,14 @@ export async function updateCard(
     title: (formData.get("title") as string) ?? "",
     description: formData.get("description") as string | null,
   });
-  
+
   if (!parsed.success) {
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
-  
+
   const { cardId, title, description } = parsed.data;
 
   return withRbacGuard(async () => {
@@ -346,7 +400,7 @@ export async function updateCard(
         column: { include: { board: { select: { organizationId: true } } } },
       },
     });
-    
+
     if (!card) {
       throw new Error("Card não encontrado.");
     }
@@ -354,11 +408,21 @@ export async function updateCard(
     // Verifica se o usuário é membro da organização
     await requireMembership(card.column.board.organizationId);
 
-    await db.card.update({
+    const updatedCard = await db.card.update({
       where: { id: cardId },
       data: {
         title: title.trim(),
         description: description?.trim() || null,
+      },
+    });
+
+    // Publica evento em tempo real
+    await publishEvent(card.column.boardId, {
+      type: "card.updated",
+      card: {
+        id: updatedCard.id,
+        title: updatedCard.title,
+        description: updatedCard.description,
       },
     });
 
@@ -378,14 +442,14 @@ export async function toggleLabel(
     cardId: (formData.get("cardId") as string) ?? "",
     labelId: (formData.get("labelId") as string) ?? "",
   });
-  
+
   if (!parsed.success) {
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
-  
+
   const { cardId, labelId } = parsed.data;
 
   return withRbacGuard(async () => {
@@ -396,7 +460,7 @@ export async function toggleLabel(
         column: { include: { board: { select: { organizationId: true } } } },
       },
     });
-    
+
     if (!card) {
       throw new Error("Card não encontrado.");
     }
@@ -411,7 +475,7 @@ export async function toggleLabel(
         boardId: card.column.boardId,
       },
     });
-    
+
     if (!label) {
       throw new Error("Label não encontrada.");
     }
@@ -446,6 +510,14 @@ export async function toggleLabel(
       });
     }
 
+    // Publica evento em tempo real
+    await publishEvent(card.column.boardId, {
+      type: "label.toggled",
+      cardId,
+      labelId,
+      added: !existingCardLabel,
+    });
+
     revalidatePath(`/boards/${card.column.boardId}`);
     return { ok: true };
   });
@@ -462,14 +534,14 @@ export async function deleteCardModal(
   const parsed = deleteCardModalSchema.safeParse({
     cardId: (formData.get("cardId") as string) ?? "",
   });
-  
+
   if (!parsed.success) {
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
-  
+
   const { cardId } = parsed.data;
 
   return withRbacGuard(async () => {
@@ -479,7 +551,7 @@ export async function deleteCardModal(
         column: { include: { board: { select: { organizationId: true } } } },
       },
     });
-    
+
     if (!card) {
       throw new Error("Card não encontrado.");
     }
@@ -488,6 +560,12 @@ export async function deleteCardModal(
     await requireMembership(card.column.board.organizationId);
 
     await db.card.delete({ where: { id: cardId } });
+
+    // Publica evento em tempo real
+    await publishEvent(card.column.boardId, {
+      type: "card.deleted",
+      cardId,
+    });
 
     revalidatePath(`/boards/${card.column.boardId}`);
     return { ok: true };

@@ -34,6 +34,8 @@ import { DeleteCardDialog } from "./delete-card-dialog";
 import { CardModal } from "./card-modal";
 import { reorderCards } from "./reorder-actions";
 import { reorderColumns } from "./reorder-columns";
+import { useRealtimeBoard } from "@/lib/realtime";
+import { RealtimeStatus } from "@/components/realtime-status";
 
 type CardDTO = {
   id: string;
@@ -76,6 +78,126 @@ export function Kanban({
     () => setColumns(normalize(initialColumns)),
     [initialColumns]
   );
+
+  // Hook de tempo real
+  const { isConnected } = useRealtimeBoard(boardId, (event) => {
+    console.log("Evento recebido:", event);
+
+    switch (event.type) {
+      case "column.created":
+        setColumns((prev) => {
+          const newColumns = [
+            ...prev,
+            {
+              id: event.column.id,
+              title: event.column.title,
+              index: event.column.index,
+              cards: [],
+            },
+          ];
+          return normalize(newColumns);
+        });
+        break;
+
+      case "column.updated":
+        setColumns((prev) =>
+          prev.map((col) =>
+            col.id === event.column.id
+              ? { ...col, title: event.column.title }
+              : col
+          )
+        );
+        break;
+
+      case "column.deleted":
+        setColumns((prev) => prev.filter((col) => col.id !== event.columnId));
+        break;
+
+      case "column.reordered":
+        setColumns((prev) => {
+          const newColumns = event.columnIds
+            .map((id, index) => {
+              const col = prev.find((c) => c.id === id);
+              return col ? { ...col, index } : null;
+            })
+            .filter(Boolean) as ColumnDTO[];
+          return normalize(newColumns);
+        });
+        break;
+
+      case "card.created":
+        setColumns((prev) =>
+          prev.map((col) =>
+            col.id === event.card.columnId
+              ? {
+                  ...col,
+                  cards: [
+                    ...col.cards,
+                    {
+                      id: event.card.id,
+                      title: event.card.title,
+                      description: event.card.description,
+                      index: event.card.index,
+                      cardLabels: [],
+                    },
+                  ],
+                }
+              : col
+          )
+        );
+        break;
+
+      case "card.updated":
+        setColumns((prev) =>
+          prev.map((col) => ({
+            ...col,
+            cards: col.cards.map((card) =>
+              card.id === event.card.id
+                ? {
+                    ...card,
+                    title: event.card.title,
+                    description: event.card.description,
+                  }
+                : card
+            ),
+          }))
+        );
+        break;
+
+      case "card.deleted":
+        setColumns((prev) =>
+          prev.map((col) => ({
+            ...col,
+            cards: col.cards.filter((card) => card.id !== event.cardId),
+          }))
+        );
+        break;
+
+      case "card.reordered":
+        setColumns((prev) => {
+          const newColumns = [...prev];
+          for (const update of event.updates) {
+            const col = newColumns.find((c) => c.id === update.columnId);
+            if (col) {
+              const card = col.cards.find((c) => c.id === update.id);
+              if (card) {
+                card.index = update.index;
+              }
+            }
+          }
+          return newColumns.map((col) => ({
+            ...col,
+            cards: reindexCards(col.cards),
+          }));
+        });
+        break;
+
+      case "label.toggled":
+        // Atualização de labels será tratada pelo router.refresh()
+        router.refresh();
+        break;
+    }
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -227,177 +349,194 @@ export function Kanban({
   );
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-    >
-      {/* SortableContext para COLUNAS */}
-      <SortableContext items={columnIds} strategy={rectSortingStrategy}>
-        <div
-          role="list"
-          aria-label="Quadro Kanban: colunas"
-          className="flex flex-wrap gap-4 pb-2"
-        >
-          {columns.map((col) => (
-            <SortableColumn
-              key={col.id}
-              id={col.id}
-              title={col.title}
-              boardId={boardId}
-            >
-              {/* Zona droppable da coluna (aceita drops quando vazia) */}
-              <ColumnDropZone columnId={col.id}>
-                {/* SortableContext para CARDS desta coluna */}
-                <SortableContext
-                  items={col.cards.map((c) => c.id)}
-                  strategy={rectSortingStrategy}
-                >
-                  <div
-                    role="list"
-                    aria-label={`Cards da coluna ${col.title}`}
-                    className="space-y-2"
+    <>
+      {/* Indicador de conexão em tempo real */}
+      <div className="mb-4 flex items-center justify-between">
+        <RealtimeStatus boardId={boardId} />
+        <span className="text-xs text-muted-foreground">
+          Alterações são sincronizadas automaticamente
+        </span>
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        {/* SortableContext para COLUNAS */}
+        <SortableContext items={columnIds} strategy={rectSortingStrategy}>
+          <div
+            role="list"
+            aria-label="Quadro Kanban: colunas"
+            className="flex flex-wrap gap-4 pb-2"
+          >
+            {columns.map((col) => (
+              <SortableColumn
+                key={col.id}
+                id={col.id}
+                title={col.title}
+                boardId={boardId}
+              >
+                {/* Zona droppable da coluna (aceita drops quando vazia) */}
+                <ColumnDropZone columnId={col.id}>
+                  {/* SortableContext para CARDS desta coluna */}
+                  <SortableContext
+                    items={col.cards.map((c) => c.id)}
+                    strategy={rectSortingStrategy}
                   >
-                    {col.cards.length === 0 ? (
-                      <div
-                        aria-label="Sem cards nesta coluna"
-                        className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground"
-                      >
-                        Arraste cards para cá ou crie um novo abaixo
-                      </div>
-                    ) : (
-                      col.cards.map((card) => (
-                        <SortableCard key={card.id} id={card.id}>
-                          <CardModal
-                            card={card}
-                            labels={labels}
-                            trigger={
-                              <div
-                                role="article"
-                                aria-roledescription="Card"
-                                aria-label={card.title}
-                                className="rounded-lg border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 text-sm group focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 hover:shadow-md cursor-pointer"
-                                tabIndex={0}
-                              >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">
-                                  {card.title}
-                                </div>
-                                {card.description && (
-                                  <p className="mt-1 text-muted-foreground line-clamp-3">
-                                    {card.description}
-                                  </p>
-                                )}
-                                
-                                {/* Labels */}
-                                {card.cardLabels && card.cardLabels.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {card.cardLabels.map((cardLabel) => {
-                                      const label = labels.find(l => l.id === cardLabel.labelId);
-                                      if (!label) return null;
-                                      
-                                      return (
-                                        <span
-                                          key={cardLabel.labelId}
-                                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                                          style={{
-                                            backgroundColor: label.color + '20',
-                                            color: label.color,
-                                            border: `1px solid ${label.color}40`,
-                                          }}
-                                        >
-                                          {label.name}
-                                        </span>
-                                      );
-                                    })}
+                    <div
+                      role="list"
+                      aria-label={`Cards da coluna ${col.title}`}
+                      className="space-y-2"
+                    >
+                      {col.cards.length === 0 ? (
+                        <div
+                          aria-label="Sem cards nesta coluna"
+                          className="rounded-md border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground"
+                        >
+                          Arraste cards para cá ou crie um novo abaixo
+                        </div>
+                      ) : (
+                        col.cards.map((card) => (
+                          <SortableCard key={card.id} id={card.id}>
+                            <CardModal
+                              card={card}
+                              labels={labels}
+                              trigger={
+                                <div
+                                  role="article"
+                                  aria-roledescription="Card"
+                                  aria-label={card.title}
+                                  className="rounded-lg border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 text-sm group focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150 hover:shadow-md cursor-pointer"
+                                  tabIndex={0}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="font-medium truncate">
+                                        {card.title}
+                                      </div>
+                                      {card.description && (
+                                        <p className="mt-1 text-muted-foreground line-clamp-3">
+                                          {card.description}
+                                        </p>
+                                      )}
+
+                                      {/* Labels */}
+                                      {card.cardLabels &&
+                                        card.cardLabels.length > 0 && (
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {card.cardLabels.map(
+                                              (cardLabel) => {
+                                                const label = labels.find(
+                                                  (l) =>
+                                                    l.id === cardLabel.labelId
+                                                );
+                                                if (!label) return null;
+
+                                                return (
+                                                  <span
+                                                    key={cardLabel.labelId}
+                                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                                    style={{
+                                                      backgroundColor:
+                                                        label.color + "20",
+                                                      color: label.color,
+                                                      border: `1px solid ${label.color}40`,
+                                                    }}
+                                                  >
+                                                    {label.name}
+                                                  </span>
+                                                );
+                                              }
+                                            )}
+                                          </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                      {/* Editar card */}
+                                      <RenameCardDialog
+                                        boardId={boardId}
+                                        cardId={card.id}
+                                        currentTitle={card.title}
+                                        currentDescription={card.description}
+                                        trigger={
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => e.stopPropagation()}
+                                            aria-label={`Renomear card ${card.title}`}
+                                          >
+                                            <Pencil className="h-4 w-4" />
+                                          </Button>
+                                        }
+                                      />
+
+                                      {/* Excluir card */}
+                                      <DeleteCardDialog
+                                        boardId={boardId}
+                                        cardId={card.id}
+                                        cardTitle={card.title}
+                                        trigger={
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => e.stopPropagation()}
+                                            aria-label={`Excluir card ${card.title}`}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        }
+                                      />
+                                    </div>
                                   </div>
-                                )}
-                              </div>
+                                </div>
+                              }
+                            />
+                          </SortableCard>
+                        ))
+                      )}
+                    </div>
+                  </SortableContext>
 
-                              <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                {/* Editar card */}
-                                <RenameCardDialog
-                                  boardId={boardId}
-                                  cardId={card.id}
-                                  currentTitle={card.title}
-                                  currentDescription={card.description}
-                                  trigger={
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e) => e.stopPropagation()}
-                                      aria-label={`Renomear card ${card.title}`}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  }
-                                />
-
-                                {/* Excluir card */}
-                                <DeleteCardDialog
-                                  boardId={boardId}
-                                  cardId={card.id}
-                                  cardTitle={card.title}
-                                  trigger={
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e) => e.stopPropagation()}
-                                      aria-label={`Excluir card ${card.title}`}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  }
-                                />
-                              </div>
-                            </div>
-                              </div>
-                            }
-                          />
-                        </SortableCard>
-                      ))
-                    )}
+                  {/* Form de novo card */}
+                  <div className="mt-4">
+                    <CreateCardForm columnId={col.id} boardId={boardId} />
                   </div>
-                </SortableContext>
-
-                {/* Form de novo card */}
-                <div className="mt-4">
-                  <CreateCardForm columnId={col.id} boardId={boardId} />
-                </div>
-              </ColumnDropZone>
-            </SortableColumn>
-          ))}
-        </div>
-      </SortableContext>
-
-      {/* GHOST/OVERLAY com skin */}
-      <DragOverlay dropAnimation={null}>
-        {activeDrag?.type === "column" ? (
-          <div className="w-80 shrink-0 rounded-xl border bg-card/95 p-3 shadow-2xl opacity-90">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="truncate font-semibold">{activeDrag.title}</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="h-12 rounded-md border bg-background/60" />
-              <div className="h-12 rounded-md border bg-background/60" />
-            </div>
+                </ColumnDropZone>
+              </SortableColumn>
+            ))}
           </div>
-        ) : activeDrag?.type === "card" ? (
-          <div className="rounded-lg border bg-background/95 p-3 text-sm shadow-2xl opacity-90">
-            <div className="font-medium truncate">{activeDrag.title}</div>
-            {activeDrag.description && (
-              <p className="mt-1 text-muted-foreground line-clamp-3">
-                {activeDrag.description}
-              </p>
-            )}
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        </SortableContext>
+
+        {/* GHOST/OVERLAY com skin */}
+        <DragOverlay dropAnimation={null}>
+          {activeDrag?.type === "column" ? (
+            <div className="w-80 shrink-0 rounded-xl border bg-card/95 p-3 shadow-2xl opacity-90">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="truncate font-semibold">{activeDrag.title}</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="h-12 rounded-md border bg-background/60" />
+                <div className="h-12 rounded-md border bg-background/60" />
+              </div>
+            </div>
+          ) : activeDrag?.type === "card" ? (
+            <div className="rounded-lg border bg-background/95 p-3 text-sm shadow-2xl opacity-90">
+              <div className="font-medium truncate">{activeDrag.title}</div>
+              {activeDrag.description && (
+                <p className="mt-1 text-muted-foreground line-clamp-3">
+                  {activeDrag.description}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </>
   );
 }
 
