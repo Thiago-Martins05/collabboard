@@ -47,7 +47,7 @@ export function BoardFilter({
         placeholder="Buscar cards..."
         value={searchTerm}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="w-72"
+        className="w-72 bg-background/80 border-muted/50 focus:border-blue-500/50 focus:ring-blue-500/20"
         aria-label="Buscar cards"
       />
 

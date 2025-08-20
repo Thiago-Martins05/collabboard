@@ -249,7 +249,9 @@ export function Kanban({
   });
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 4 },
+    }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -336,7 +338,32 @@ export function Kanban({
       const activeId = String(active.id);
       const overId = String(over.id);
 
-      // drop em coluna vazia
+      // drop em coluna (quando overType é 'column')
+      if (overType === "column") {
+        const toColumnId = overId;
+        const fromColIdx = columns.findIndex((col) =>
+          col.cards.some((c) => c.id === activeId)
+        );
+        const toColIdx = columns.findIndex((col) => col.id === toColumnId);
+        if (fromColIdx === -1 || toColIdx === -1) return;
+
+        const next = structuredClone(columns) as ColumnDTO[];
+        const oldIndex = next[fromColIdx].cards.findIndex(
+          (c) => c.id === activeId
+        );
+        if (oldIndex === -1) return;
+
+        const [moved] = next[fromColIdx].cards.splice(oldIndex, 1);
+        next[toColIdx].cards.push(moved);
+        next[fromColIdx].cards = reindexCards(next[fromColIdx].cards);
+        next[toColIdx].cards = reindexCards(next[toColIdx].cards);
+
+        setColumns(next);
+        persistCards(boardId, next, startPersist, router);
+        return;
+      }
+
+      // drop em coluna vazia (zona droppable)
       if (overId.startsWith("drop-")) {
         const toColumnId = overId.replace("drop-", "");
         const fromColIdx = columns.findIndex((col) =>
@@ -432,15 +459,13 @@ export function Kanban({
             <RealtimeStatus boardId={boardId} />
           </div>
 
-          {/* Filtro de busca estilizado */}
-          <div className="rounded-2xl border bg-card/80 backdrop-blur-sm p-4 shadow-lg">
-            <BoardFilter
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              resultCount={filteredCards}
-              totalCount={totalCards}
-            />
-          </div>
+          {/* Filtro de busca */}
+          <BoardFilter
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            resultCount={filteredCards}
+            totalCount={totalCards}
+          />
 
           {/* Status de tempo real */}
           <div className="flex items-center justify-between">
@@ -520,9 +545,9 @@ export function Kanban({
                                     tabIndex={0}
                                   >
                                     {/* Gradiente sutil no fundo */}
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-0"></div>
 
-                                    <div className="relative flex items-start justify-between gap-3">
+                                    <div className="relative flex items-start justify-between gap-3 z-10">
                                       <div className="min-w-0 flex-1">
                                         <div className="font-semibold truncate text-foreground/90 group-hover:text-foreground transition-colors">
                                           <HighlightedText
@@ -575,7 +600,7 @@ export function Kanban({
                                           )}
                                       </div>
 
-                                      <div className="flex items-center gap-1 opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 translate-x-2">
+                                      <div className="flex items-center gap-1 opacity-100 transition-all duration-200 z-10">
                                         {/* Editar card */}
                                         <RenameCardDialog
                                           boardId={boardId}

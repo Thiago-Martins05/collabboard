@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { signOut } from "next-auth/react";
 import Image from "next/image";
 
 export function Header() {
@@ -27,23 +28,17 @@ export function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 hover:bg-muted/80"
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 hover:bg-muted/80"
-          >
-            <User className="h-4 w-4" />
-          </Button>
-
           <ThemeToggle />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 hover:bg-muted/80"
+            aria-label="Sair"
+            onClick={() => signOut({ callbackUrl: "/" })}
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </header>

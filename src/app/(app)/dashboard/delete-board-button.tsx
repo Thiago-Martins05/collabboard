@@ -50,13 +50,15 @@ export function DeleteBoardButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <button
-          className="h-8 w-8 rounded p-1 hover:bg-accent hover:text-accent-foreground"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900/30"
           onClick={(e) => e.stopPropagation()}
           aria-label={`Excluir board ${boardTitle}`}
         >
           <Trash2 className="h-4 w-4" />
-        </button>
+        </Button>
       </AlertDialogTrigger>
 
       <AlertDialogContent>

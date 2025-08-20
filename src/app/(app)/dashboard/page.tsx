@@ -157,9 +157,9 @@ export default async function DashboardPage({
                 className="group relative rounded-2xl border bg-card/90 backdrop-blur-sm p-6 shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02] border-muted/50 hover:border-muted"
               >
                 {/* Gradiente sutil no fundo */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 dark:from-blue-950/10 dark:to-purple-950/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 dark:from-blue-950/10 dark:to-purple-950/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-0"></div>
 
-                <div className="relative flex items-center justify-between">
+                <div className="relative flex items-center justify-between z-10">
                   <Link
                     href={`/boards/${board.id}`}
                     className="flex-1 hover:underline"
@@ -181,7 +181,7 @@ export default async function DashboardPage({
                     </div>
                   </Link>
 
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0 translate-x-2">
+                  <div className="flex items-center gap-2 opacity-100 transition-all duration-200 z-10">
                     <RenameBoardButton
                       boardId={board.id}
                       boardTitle={board.title}

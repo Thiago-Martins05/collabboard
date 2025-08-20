@@ -2,11 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState, useEffect } from "react";
-import { Search, LogOut } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { signOut } from "next-auth/react";
 
 export function DashboardControls() {
   return (
@@ -17,17 +15,13 @@ export function DashboardControls() {
         <DashboardSearch />
       </div>
 
-      {/* Toggle de tema e logout */}
+      {/* Busca apenas */}
       <div className="flex items-center gap-2">
-        <ThemeToggle />
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Sair"
-          onClick={() => signOut({ callbackUrl: "/" })}
-        >
-          <LogOut className="h-5 w-5" />
-        </Button>
+        {/* Busca móvel */}
+        <div className="flex min-w-[200px] items-center gap-2 rounded-md border bg-background px-2 sm:hidden">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <DashboardSearch />
+        </div>
       </div>
     </div>
   );
