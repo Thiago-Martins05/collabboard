@@ -46,8 +46,8 @@ export function HeaderSearch() {
     <Input
       value={q}
       onChange={(e) => setQ(e.target.value)}
-      placeholder="Buscar boards..."
-      aria-label="Buscar boards"
+      placeholder="Buscar Tarefas ..."
+      aria-label="Buscar Tarefas..."
       className="w-72"
       disabled={isPending}
     />

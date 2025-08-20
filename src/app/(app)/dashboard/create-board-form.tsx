@@ -72,10 +72,10 @@ export function CreateBoardForm() {
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <Label htmlFor="title">Nome do board</Label>
+          <Label htmlFor="title">Nome da tarefa</Label>
           <Input
             id="title"
-            placeholder="Ex.: Sprint de Setembro"
+            placeholder="Ex.: Fazer o projeto ..."
             disabled={isPending}
             {...register("title")}
           />
@@ -93,7 +93,7 @@ export function CreateBoardForm() {
             </span>
           ) : (
             <span className="inline-flex items-center gap-2">
-              <Plus className="h-4 w-4" /> Criar board
+              <Plus className="h-4 w-4" /> Criar Tarefa
             </span>
           )}
         </Button>

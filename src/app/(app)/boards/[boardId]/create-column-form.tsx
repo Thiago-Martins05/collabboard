@@ -59,10 +59,10 @@ export function CreateColumnForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex items-end gap-2">
       <div className="flex-1">
-        <Label htmlFor="title">Nova Coluna</Label>
+        <Label htmlFor="title">Novo Card</Label>
         <Input
           id="title"
-          placeholder="Ex.: A fazer"
+          placeholder="Ex.: A fazer..."
           disabled={isPending}
           {...register("title")}
         />

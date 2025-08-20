@@ -51,7 +51,7 @@ function DashboardSearch() {
       <Input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Buscar boards…"
+        placeholder="Buscar Tarefas..."
         className="h-8 border-0 shadow-none focus-visible:ring-0"
       />
       <Button type="submit" size="sm" variant="secondary" className="h-8">
