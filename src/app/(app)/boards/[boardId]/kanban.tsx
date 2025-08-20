@@ -36,6 +36,7 @@ import { reorderCards } from "./reorder-actions";
 import { reorderColumns } from "./reorder-columns";
 import { useRealtimeBoard } from "@/lib/realtime";
 import { RealtimeStatus } from "@/components/realtime-status";
+import { BoardFilter, HighlightedText } from "@/components/board/board-filter";
 
 type CardDTO = {
   id: string;
@@ -74,9 +75,59 @@ export function Kanban({
     | null
   >(null);
 
+  // Estado de filtro
+  const [searchTerm, setSearchTerm] = React.useState("");
+
   React.useEffect(
     () => setColumns(normalize(initialColumns)),
     [initialColumns]
+  );
+
+  // Função para verificar se um card corresponde ao filtro
+  const cardMatchesFilter = React.useCallback(
+    (card: CardDTO) => {
+      if (!searchTerm.trim()) return true;
+
+      const term = searchTerm.toLowerCase();
+
+      // Busca no título
+      if (card.title.toLowerCase().includes(term)) return true;
+
+      // Busca na descrição
+      if (card.description?.toLowerCase().includes(term)) return true;
+
+      // Busca nas labels
+      if (card.cardLabels) {
+        for (const cardLabel of card.cardLabels) {
+          const label = labels.find((l) => l.id === cardLabel.labelId);
+          if (label && label.name.toLowerCase().includes(term)) return true;
+        }
+      }
+
+      return false;
+    },
+    [searchTerm, labels]
+  );
+
+  // Colunas filtradas
+  const filteredColumns = React.useMemo(() => {
+    if (!searchTerm.trim()) return columns;
+
+    return columns.map((col) => ({
+      ...col,
+      cards: col.cards.filter(cardMatchesFilter),
+    }));
+  }, [columns, searchTerm, cardMatchesFilter]);
+
+  // Contadores para o filtro
+  const totalCards = React.useMemo(
+    () => columns.reduce((sum, col) => sum + col.cards.length, 0),
+    [columns]
+  );
+
+  const filteredCards = React.useMemo(
+    () => filteredColumns.reduce((sum, col) => sum + col.cards.length, 0),
+    [filteredColumns]
   );
 
   // Hook de tempo real
@@ -350,12 +401,30 @@ export function Kanban({
 
   return (
     <>
-      {/* Indicador de conexão em tempo real */}
-      <div className="mb-4 flex items-center justify-between">
-        <RealtimeStatus boardId={boardId} />
-        <span className="text-xs text-muted-foreground">
-          Alterações são sincronizadas automaticamente
-        </span>
+      {/* Header com filtro e status de tempo real */}
+      <div className="mb-4 space-y-4">
+        {/* Filtro de busca */}
+        <div className="flex items-center justify-between">
+          <BoardFilter
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            resultCount={filteredCards}
+            totalCount={totalCards}
+          />
+          <RealtimeStatus boardId={boardId} />
+        </div>
+
+        {/* Status de tempo real */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            Alterações são sincronizadas automaticamente
+          </span>
+          {searchTerm && (
+            <span className="text-xs text-muted-foreground">
+              Mostrando {filteredCards} de {totalCards} cards
+            </span>
+          )}
+        </div>
       </div>
 
       <DndContext
@@ -371,7 +440,7 @@ export function Kanban({
             aria-label="Quadro Kanban: colunas"
             className="flex flex-wrap gap-4 pb-2"
           >
-            {columns.map((col) => (
+            {filteredColumns.map((col) => (
               <SortableColumn
                 key={col.id}
                 id={col.id}
@@ -414,11 +483,17 @@ export function Kanban({
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
                                       <div className="font-medium truncate">
-                                        {card.title}
+                                        <HighlightedText
+                                          text={card.title}
+                                          searchTerm={searchTerm}
+                                        />
                                       </div>
                                       {card.description && (
                                         <p className="mt-1 text-muted-foreground line-clamp-3">
-                                          {card.description}
+                                          <HighlightedText
+                                            text={card.description}
+                                            searchTerm={searchTerm}
+                                          />
                                         </p>
                                       )}
 
@@ -445,7 +520,10 @@ export function Kanban({
                                                       border: `1px solid ${label.color}40`,
                                                     }}
                                                   >
-                                                    {label.name}
+                                                    <HighlightedText
+                                                      text={label.name}
+                                                      searchTerm={searchTerm}
+                                                    />
                                                   </span>
                                                 );
                                               }
