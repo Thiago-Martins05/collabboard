@@ -4,7 +4,7 @@ import React, { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card } from "@prisma/client";
-import { updateCard, deleteCardModal } from "./actions";
+import { updateCard, deleteCardModal, toggleLabel } from "./actions";
 import {
   Dialog,
   DialogContent,
@@ -29,16 +29,28 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Pencil, Trash2, Save, X } from "lucide-react";
 
+interface Label {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface CardLabel {
+  labelId: string;
+}
+
 interface CardModalProps {
   card: {
     id: string;
     title: string;
     description?: string | null;
+    cardLabels?: CardLabel[];
   };
+  labels: Label[];
   trigger: React.ReactNode;
 }
 
-export function CardModal({ card, trigger }: CardModalProps) {
+export function CardModal({ card, labels, trigger }: CardModalProps) {
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(card.title);
@@ -82,6 +94,21 @@ export function CardModal({ card, trigger }: CardModalProps) {
         router.refresh();
       } else {
         toast.error(res?.error ?? "Erro ao excluir card", { id });
+      }
+    });
+  }
+
+  async function handleToggleLabel(labelId: string) {
+    const formData = new FormData();
+    formData.set("cardId", card.id);
+    formData.set("labelId", labelId);
+
+    startTransition(async () => {
+      const res = await toggleLabel({ ok: false }, formData);
+      if (res?.ok) {
+        router.refresh();
+      } else {
+        toast.error(res?.error ?? "Erro ao alterar label");
       }
     });
   }
@@ -130,6 +157,54 @@ export function CardModal({ card, trigger }: CardModalProps) {
               rows={6}
               disabled={isPending}
             />
+          </div>
+
+          {/* Labels */}
+          <div className="space-y-2">
+            <Label>Labels</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {labels.map((label) => {
+                const isSelected = card.cardLabels?.some(
+                  (cl) => cl.labelId === label.id
+                );
+                return (
+                  <label
+                    key={label.id}
+                    className="flex items-center space-x-2 cursor-pointer p-2 rounded border hover:bg-muted/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleLabel(label.id)}
+                      disabled={isPending}
+                      className="sr-only"
+                    />
+                    <div
+                      className="w-4 h-4 rounded border-2 flex items-center justify-center"
+                      style={{
+                        borderColor: isSelected ? label.color : '#e5e7eb',
+                        backgroundColor: isSelected ? label.color : 'transparent',
+                      }}
+                    >
+                      {isSelected && (
+                        <svg
+                          className="w-3 h-3 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{label.name}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {/* Botões */}

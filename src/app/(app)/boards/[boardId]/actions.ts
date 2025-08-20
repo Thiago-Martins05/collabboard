@@ -28,6 +28,11 @@ const deleteCardModalSchema = z.object({
   cardId: z.string().min(1),
 });
 
+const toggleLabelSchema = z.object({
+  cardId: z.string().min(1),
+  labelId: z.string().min(1),
+});
+
 
 
 export type ActionState = { ok: boolean; error?: string };
@@ -356,6 +361,90 @@ export async function updateCard(
         description: description?.trim() || null,
       },
     });
+
+    revalidatePath(`/boards/${card.column.boardId}`);
+    return { ok: true };
+  });
+}
+
+/**
+ * Adiciona ou remove uma label de um card
+ */
+export async function toggleLabel(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const parsed = toggleLabelSchema.safeParse({
+    cardId: (formData.get("cardId") as string) ?? "",
+    labelId: (formData.get("labelId") as string) ?? "",
+  });
+  
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
+    };
+  }
+  
+  const { cardId, labelId } = parsed.data;
+
+  return withRbacGuard(async () => {
+    // Busca o card e verifica se o usuário tem acesso
+    const card = await db.card.findUnique({
+      where: { id: cardId },
+      include: {
+        column: { include: { board: { select: { organizationId: true } } } },
+      },
+    });
+    
+    if (!card) {
+      throw new Error("Card não encontrado.");
+    }
+
+    // Verifica se o usuário é membro da organização
+    await requireMembership(card.column.board.organizationId);
+
+    // Verifica se a label existe e pertence ao board
+    const label = await db.label.findFirst({
+      where: {
+        id: labelId,
+        boardId: card.column.boardId,
+      },
+    });
+    
+    if (!label) {
+      throw new Error("Label não encontrada.");
+    }
+
+    // Verifica se a label já está associada ao card
+    const existingCardLabel = await db.cardLabel.findUnique({
+      where: {
+        cardId_labelId: {
+          cardId,
+          labelId,
+        },
+      },
+    });
+
+    if (existingCardLabel) {
+      // Remove a label
+      await db.cardLabel.delete({
+        where: {
+          cardId_labelId: {
+            cardId,
+            labelId,
+          },
+        },
+      });
+    } else {
+      // Adiciona a label
+      await db.cardLabel.create({
+        data: {
+          cardId,
+          labelId,
+        },
+      });
+    }
 
     revalidatePath(`/boards/${card.column.boardId}`);
     return { ok: true };

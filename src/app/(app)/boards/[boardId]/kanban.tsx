@@ -40,6 +40,7 @@ type CardDTO = {
   title: string;
   description?: string | null;
   index: number;
+  cardLabels?: Array<{ labelId: string }>;
 };
 
 type ColumnDTO = {
@@ -52,9 +53,11 @@ type ColumnDTO = {
 export function Kanban({
   boardId,
   columns: initialColumns,
+  labels,
 }: {
   boardId: string;
   columns: ColumnDTO[];
+  labels: Array<{ id: string; name: string; color: string }>;
 }) {
   const router = useRouter();
   const [isPersisting, startPersist] = React.useTransition();
@@ -268,6 +271,7 @@ export function Kanban({
                         <SortableCard key={card.id} id={card.id}>
                           <CardModal
                             card={card}
+                            labels={labels}
                             trigger={
                               <div
                                 role="article"
@@ -285,6 +289,30 @@ export function Kanban({
                                   <p className="mt-1 text-muted-foreground line-clamp-3">
                                     {card.description}
                                   </p>
+                                )}
+                                
+                                {/* Labels */}
+                                {card.cardLabels && card.cardLabels.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {card.cardLabels.map((cardLabel) => {
+                                      const label = labels.find(l => l.id === cardLabel.labelId);
+                                      if (!label) return null;
+                                      
+                                      return (
+                                        <span
+                                          key={cardLabel.labelId}
+                                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                          style={{
+                                            backgroundColor: label.color + '20',
+                                            color: label.color,
+                                            border: `1px solid ${label.color}40`,
+                                          }}
+                                        >
+                                          {label.name}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 )}
                               </div>
 

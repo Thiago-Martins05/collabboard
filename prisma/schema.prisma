@@ -102,6 +102,7 @@ model Board {
   organizationId String
   title          String
   columns        Column[]
+  labels         Label[]
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -127,8 +128,39 @@ model Card {
   index       Int
 
   column Column @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  cardLabels  CardLabel[]
 
   @@index([columnId, index])
+}
+
+/**
+ * Labels *
+ */
+model Label {
+  id      String @id @default(cuid())
+  boardId String
+  name    String
+  color   String // hex color code
+  createdAt DateTime @default(now())
+
+  board      Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cardLabels CardLabel[]
+
+  @@index([boardId])
+}
+
+model CardLabel {
+  id      String @id @default(cuid())
+  cardId  String
+  labelId String
+  createdAt DateTime @default(now())
+
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, labelId])
+  @@index([cardId])
+  @@index([labelId])
 }
 
 /**
