@@ -6,6 +6,8 @@ import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 import { getSession } from "@/lib/session";
 import { enforceFeatureLimit } from "@/lib/limits";
 import { z } from "zod";
+import * as Sentry from "@sentry/nextjs";
+import { actionRateLimit } from "@/lib/rate-limit";
 
 /* ============ CREATE ============ */
 
@@ -73,6 +75,16 @@ export async function createBoard(
     revalidatePath("/dashboard");
     return { ok: true };
   } catch (error) {
+    // Capturar erro no Sentry
+    Sentry.captureException(error, {
+      tags: {
+        action: "create_board",
+      },
+      extra: {
+        boardTitle: parsed.data?.title,
+      },
+    });
+
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Erro interno",
