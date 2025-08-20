@@ -84,15 +84,15 @@ export function BillingPlans({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
+    <div>
+      <div className="text-center" style={{ marginBottom: "2rem" }}>
         <h2 className="text-2xl font-bold">Escolha seu plano</h2>
         <p className="text-muted-foreground">
           Comece grátis e faça upgrade quando precisar
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2" style={{ marginTop: "4rem" }}>
         {/* Plano Free */}
         <Card className="relative">
           {currentPlan === "FREE" && (

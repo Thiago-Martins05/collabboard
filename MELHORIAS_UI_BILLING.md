@@ -86,6 +86,8 @@ http://localhost:3000/billing
 - `z-10` - Camada de sobreposição
 - `shadow-sm` - Sombra sutil
 - `pt-8` - Padding superior condicional
+- `style={{ marginTop: '4rem' }}` - Margem superior dos cards (CSS inline)
+- `style={{ marginBottom: '2rem' }}` - Margem inferior do título (CSS inline)
 
 ### Lógica Condicional:
 
