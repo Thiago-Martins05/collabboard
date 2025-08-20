@@ -2,8 +2,8 @@ import * as React from "react";
 import PusherServer from "pusher";
 import PusherClient from "pusher-js";
 
-// Verifica se o Pusher está configurado
-const isPusherConfigured = () => {
+// Verifica se o Pusher está configurado no servidor
+const isPusherServerConfigured = () => {
   return !!(
     process.env.PUSHER_APP_ID &&
     process.env.NEXT_PUBLIC_PUSHER_KEY &&
@@ -12,8 +12,24 @@ const isPusherConfigured = () => {
   );
 };
 
+// Verifica se o Pusher está configurado no cliente
+const isPusherClientConfigured = () => {
+  const hasKey = !!process.env.NEXT_PUBLIC_PUSHER_KEY;
+  const hasCluster = !!process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+  console.log("🔧 Debug Pusher Client Config:", {
+    NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY,
+    NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+    hasKey,
+    hasCluster,
+    isConfigured: hasKey && hasCluster,
+  });
+
+  return !!(hasKey && hasCluster);
+};
+
 // Configuração do servidor Pusher (opcional)
-export const pusherServer = isPusherConfigured()
+export const pusherServer = isPusherServerConfigured()
   ? new PusherServer({
       appId: process.env.PUSHER_APP_ID!,
       key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
@@ -24,7 +40,7 @@ export const pusherServer = isPusherConfigured()
   : null;
 
 // Configuração do cliente Pusher (opcional)
-export const pusherClient = isPusherConfigured()
+export const pusherClient = isPusherClientConfigured()
   ? new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
     })
@@ -66,7 +82,10 @@ export type RealtimeEvent = RealtimeEventBase & { boardId: string };
 // Função para publicar eventos
 export async function publishEvent(boardId: string, event: RealtimeEventBase) {
   if (!pusherServer) {
-    console.log("Pusher não configurado, evento ignorado:", event.type);
+    console.log(
+      "Pusher não configurado no servidor, evento ignorado:",
+      event.type
+    );
     return;
   }
 
@@ -90,7 +109,7 @@ export function useRealtimeBoard(
 
   React.useEffect(() => {
     if (!pusherClient) {
-      console.log("Pusher não configurado, tempo real desabilitado");
+      console.log("Pusher não configurado no cliente, tempo real desabilitado");
       return;
     }
 
@@ -104,7 +123,7 @@ export function useRealtimeBoard(
       setIsConnected(true);
     });
 
-    channel.bind("pusher:subscription_error", (error: any) => {
+    channel.bind("pusher:subscription_error", (error: unknown) => {
       console.error("Erro na subscrição:", error);
       setIsConnected(false);
     });
