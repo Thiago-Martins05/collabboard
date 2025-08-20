@@ -67,8 +67,9 @@ model Organization {
   ownerId     String
   memberships Membership[]
   boards      Board[]
+  invites     Invite[]
+  subscription Subscription?
   createdAt   DateTime     @default(now())
-  Invite      Invite[]
 }
 
 model Membership {
@@ -178,10 +179,15 @@ model Invitation {
 model Subscription {
   id               String    @id @default(cuid())
   organizationId   String    @unique
+  stripeCustomerId String?
   stripeSubId      String?
-  status           String?
-  plan             String? // FREE | PRO
+  status           String?   @default("FREE") // FREE | PRO
+  plan             String?   @default("FREE") // FREE | PRO
   currentPeriodEnd DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model FeatureLimit {

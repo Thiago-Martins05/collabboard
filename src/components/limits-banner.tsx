@@ -12,9 +12,14 @@ interface LimitsBannerProps {
 
 export function LimitsBanner({ feature, current, max }: LimitsBannerProps) {
   const handleUpgrade = () => {
-    // TODO: Redirecionar para página de billing
-    console.log("Redirecionar para billing");
+    window.location.href = "/billing";
   };
+
+  // Se o limite é ilimitado (-1), não mostra o banner
+  if (max === -1) {
+    return null;
+  }
+
   const usagePercentage = (current / max) * 100;
   const isAtLimit = current >= max;
   const isNearLimit = usagePercentage >= 80;

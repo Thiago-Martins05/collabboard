@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { toast } from "sonner";
+import { PLANS } from "@/lib/stripe";
 
 export type FeatureType = "boards" | "members" | "columns" | "cards" | "labels";
 
@@ -24,17 +25,39 @@ export async function getFeatureLimits(
   organizationId: string
 ): Promise<FeatureLimit | null> {
   try {
+    // Busca a subscription da organização
+    const subscription = await db.subscription.findUnique({
+      where: { organizationId },
+    });
+
+    const plan = subscription?.plan || "FREE";
+    const planLimits = PLANS[plan as keyof typeof PLANS].limits;
+
     const limits = await db.featureLimit.findUnique({
       where: { organizationId },
     });
 
     if (!limits) {
-      // Criar limites padrão se não existirem
+      // Criar limites baseados no plano atual
       return await db.featureLimit.create({
         data: {
           organizationId,
-          maxBoards: 5, // Free: 5 boards
-          maxMembers: 5, // Free: 5 members
+          maxBoards: planLimits.boards,
+          maxMembers: planLimits.members,
+        },
+      });
+    }
+
+    // Atualiza os limites se o plano mudou
+    if (
+      limits.maxBoards !== planLimits.boards ||
+      limits.maxMembers !== planLimits.members
+    ) {
+      return await db.featureLimit.update({
+        where: { organizationId },
+        data: {
+          maxBoards: planLimits.boards,
+          maxMembers: planLimits.members,
         },
       });
     }
@@ -112,7 +135,7 @@ export async function checkFeatureLimit(
   }
 
   return {
-    allowed: current < max,
+    allowed: max === -1 || current < max,
     current,
     max,
     feature,
@@ -136,6 +159,11 @@ export async function enforceFeatureLimit(
       cards: "cards",
       labels: "labels",
     };
+
+    // Se o limite é ilimitado (-1), sempre permite
+    if (result.max === -1) {
+      return true;
+    }
 
     toast.error(
       `Limite atingido! Você atingiu o máximo de ${result.max} ${featureNames[feature]} no plano Free.`,
