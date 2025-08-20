@@ -1,11 +1,56 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { signIn } from "next-auth/react";
-import { Github, Mail, Sparkles, Users, Zap, Shield } from "lucide-react";
+import {
+  Github,
+  Mail,
+  Sparkles,
+  Users,
+  Zap,
+  Shield,
+  LogIn,
+} from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function SignInPage() {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Por favor, insira seu email");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await signIn("email-login", {
+        email,
+        name,
+        callbackUrl: "/dashboard",
+        redirect: false,
+      });
+
+      if (result?.error) {
+        toast.error("Erro ao fazer login. Tente novamente.");
+      } else if (result?.ok) {
+        toast.success("Login realizado com sucesso!");
+        window.location.href = "/dashboard";
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
+      toast.error("Erro inesperado. Tente novamente.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-dvh bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Background decoration */}
@@ -36,6 +81,48 @@ export default function SignInPage() {
               <p className="text-sm text-muted-foreground mt-2">
                 Entre com sua conta para continuar
               </p>
+            </div>
+
+            {/* Formulário de Email */}
+            <form onSubmit={handleEmailLogin} className="grid gap-4 mb-6">
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="seu-email@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-12"
+                  required
+                />
+                <Input
+                  type="text"
+                  placeholder="Seu nome (opcional)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-12"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                <LogIn className="mr-3 h-5 w-5" />
+                {isLoading ? "Entrando..." : "Entrar com Email"}
+              </Button>
+            </form>
+
+            {/* Divider */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">
+                  Ou continue com
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-4">

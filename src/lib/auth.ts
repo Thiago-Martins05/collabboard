@@ -1,6 +1,7 @@
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 import { ensureUserPrimaryOrganization } from "@/lib/tenant";
@@ -11,6 +12,50 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/sign-in" },
   providers: [
+    CredentialsProvider({
+      id: "email-login",
+      name: "Email Login",
+      credentials: {
+        email: {
+          label: "Email",
+          type: "email",
+          placeholder: "seu-email@exemplo.com",
+        },
+        name: {
+          label: "Nome",
+          type: "text",
+          placeholder: "Seu nome completo",
+        },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email) {
+          return null;
+        }
+
+        try {
+          // Busca ou cria o usuário
+          const user = await db.user.upsert({
+            where: { email: credentials.email },
+            update: {
+              name: credentials.name || null,
+            },
+            create: {
+              email: credentials.email,
+              name: credentials.name || null,
+            },
+          });
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+          };
+        } catch (error) {
+          console.error("Erro ao autenticar usuário:", error);
+          return null;
+        }
+      },
+    }),
     GitHub({
       clientId: process.env.GITHUB_ID!,
       clientSecret: process.env.GITHUB_SECRET!,
@@ -22,13 +67,11 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Permite múltiplas contas OAuth para o mesmo email
-      if (account && profile) {
-        try {
-          await ensureUserPrimaryOrganization();
-        } catch (e) {
-          console.error("ensureUserPrimaryOrganization(signIn) failed:", e);
-        }
+      // Para login com email ou OAuth
+      try {
+        await ensureUserPrimaryOrganization();
+      } catch (e) {
+        console.error("ensureUserPrimaryOrganization(signIn) failed:", e);
       }
       return true;
     },

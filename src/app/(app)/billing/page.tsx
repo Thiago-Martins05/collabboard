@@ -4,8 +4,13 @@ import { db } from "@/lib/db";
 import { PLANS } from "@/lib/stripe";
 import { BillingPlans } from "./billing-plans";
 import { redirect } from "next/navigation";
+import { processUpgradeAfterCheckout } from "./actions";
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: { success?: string; canceled?: string };
+}) {
   const session = await getSession();
   if (!session?.user?.email) {
     redirect("/sign-in");
@@ -15,6 +20,21 @@ export default async function BillingPage() {
   const org = await ensureUserPrimaryOrganization();
   if (!org) {
     redirect("/dashboard");
+  }
+
+  // Processa upgrade automático se veio do checkout
+  if (searchParams.success === "true") {
+    console.log("🔄 Processando upgrade automático após checkout...");
+    try {
+      const result = await processUpgradeAfterCheckout();
+      if (result.success) {
+        console.log("✅ Upgrade processado automaticamente");
+      } else {
+        console.log("⚠️ Erro no processamento automático:", result.error);
+      }
+    } catch (error) {
+      console.error("❌ Erro ao processar upgrade automático:", error);
+    }
   }
 
   // Busca a subscription atual
@@ -39,6 +59,36 @@ export default async function BillingPage() {
           Gerencie sua assinatura e escolha o plano ideal para sua organização.
         </p>
       </div>
+
+      {/* Mensagem de sucesso após checkout */}
+      {searchParams.success === "true" && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg
+                className="h-5 w-5 text-green-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-green-800">
+                Pagamento processado com sucesso!
+              </h3>
+              <p className="mt-1 text-sm text-green-700">
+                Seu plano foi atualizado para PRO. As mudanças podem levar
+                alguns segundos para aparecer.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status atual */}
       <div className="rounded-lg border bg-card p-6">

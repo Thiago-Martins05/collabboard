@@ -96,9 +96,11 @@ export function BillingPlans({
         {/* Plano Free */}
         <Card className="relative">
           {currentPlan === "FREE" && (
-            <Badge className="absolute -top-2 left-4 bg-green-600">Atual</Badge>
+            <Badge className="absolute -top-3 right-4 bg-green-600 z-10 shadow-sm">
+              Atual
+            </Badge>
           )}
-          <CardHeader>
+          <CardHeader className={currentPlan === "FREE" ? "pt-8" : ""}>
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-yellow-500" />
               Free
@@ -145,9 +147,11 @@ export function BillingPlans({
         {/* Plano Pro */}
         <Card className="relative border-2 border-primary">
           {currentPlan === "PRO" && (
-            <Badge className="absolute -top-2 left-4 bg-primary">Atual</Badge>
+            <Badge className="absolute -top-3 right-4 bg-primary z-10 shadow-sm">
+              Atual
+            </Badge>
           )}
-          <CardHeader>
+          <CardHeader className={currentPlan === "PRO" ? "pt-8" : ""}>
             <CardTitle className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-yellow-500" />
               Pro

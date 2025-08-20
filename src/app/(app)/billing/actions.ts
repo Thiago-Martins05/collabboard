@@ -165,3 +165,68 @@ export async function mockWebhookSuccess(organizationId: string) {
     return { error: "Erro interno" };
   }
 }
+
+// Action para processar upgrade automático após checkout
+export async function processUpgradeAfterCheckout() {
+  try {
+    console.log("🔄 Processando upgrades pendentes...");
+
+    // Buscar organizações FREE que têm customer ID (fizeram checkout)
+    const organizations = await db.organization.findMany({
+      where: {
+        subscription: {
+          AND: [{ plan: "FREE" }, { stripeCustomerId: { not: null } }],
+        },
+      },
+      include: {
+        subscription: true,
+      },
+    });
+
+    if (organizations.length === 0) {
+      console.log("✅ Nenhuma organização com upgrade pendente");
+      return { success: true, message: "Nenhum upgrade pendente" };
+    }
+
+    console.log(`🔄 Processando ${organizations.length} organização(s)`);
+
+    for (const organization of organizations) {
+      console.log(`🏢 Processando: ${organization.name}`);
+
+      // Atualizar subscription para PRO
+      await db.subscription.update({
+        where: { organizationId: organization.id },
+        data: {
+          plan: "PRO",
+          status: "PRO",
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+        },
+      });
+
+      // Atualizar feature limits
+      await db.featureLimit.upsert({
+        where: { organizationId: organization.id },
+        update: {
+          maxBoards: PLANS.PRO.limits.boards,
+          maxMembers: PLANS.PRO.limits.members,
+        },
+        create: {
+          organizationId: organization.id,
+          maxBoards: PLANS.PRO.limits.boards,
+          maxMembers: PLANS.PRO.limits.members,
+        },
+      });
+
+      console.log(`✅ ${organization.name} atualizada para PRO`);
+    }
+
+    console.log("🎉 Processamento concluído");
+    return {
+      success: true,
+      message: `${organizations.length} organização(s) atualizada(s)`,
+    };
+  } catch (error) {
+    console.error("❌ Erro ao processar upgrades:", error);
+    return { error: "Erro interno do servidor" };
+  }
+}
