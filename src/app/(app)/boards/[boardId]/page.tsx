@@ -6,7 +6,8 @@ import { CreateColumnForm } from "./create-column-form";
 import { RenameBoardDialog } from "./rename-board-dialog";
 import { renameBoard } from "./manage-actions";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, Settings } from "lucide-react";
+import { ManageLabelsDialog } from "./manage-labels-dialog";
 
 export default async function BoardPage({
   params,
@@ -43,6 +44,15 @@ export default async function BoardPage({
             trigger={
               <Button size="icon" variant="ghost" className="h-8 w-8">
                 <Pencil className="h-4 w-4" />
+              </Button>
+            }
+          />
+          <ManageLabelsDialog
+            boardId={board.id}
+            labels={board.labels}
+            trigger={
+              <Button size="icon" variant="ghost" className="h-8 w-8">
+                <Settings className="h-4 w-4" />
               </Button>
             }
           />
