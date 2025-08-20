@@ -11,6 +11,7 @@ import {
   DragEndEvent,
   useDroppable,
   DragOverlay,
+  DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -131,23 +132,19 @@ export function Kanban({
   );
 
   // Hook de tempo real
-  const { isConnected } = useRealtimeBoard(boardId, (event) => {
-    console.log("Evento recebido:", event);
-
+  useRealtimeBoard(boardId, (event) => {
+    // Atualiza o estado baseado no tipo de evento
     switch (event.type) {
       case "column.created":
-        setColumns((prev) => {
-          const newColumns = [
-            ...prev,
-            {
-              id: event.column.id,
-              title: event.column.title,
-              index: event.column.index,
-              cards: [],
-            },
-          ];
-          return normalize(newColumns);
-        });
+        setColumns((prev) => [
+          ...prev,
+          {
+            id: event.column.id,
+            title: event.column.title,
+            index: event.column.index,
+            cards: [],
+          },
+        ]);
         break;
 
       case "column.updated":
@@ -258,7 +255,7 @@ export function Kanban({
   const columnIds = React.useMemo(() => columns.map((c) => c.id), [columns]);
 
   const onDragStart = React.useCallback(
-    ({ active }: any) => {
+    ({ active }: DragStartEvent) => {
       const t = active?.data?.current?.type as "column" | "card" | undefined;
       if (t === "column") {
         const id = String(active.id);

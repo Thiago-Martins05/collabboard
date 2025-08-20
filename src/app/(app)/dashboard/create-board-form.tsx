@@ -40,12 +40,34 @@ export function CreateBoardForm() {
     startTransition(async () => {
       const id = toast.loading("Criando board…");
       const res = await createBoard({ ok: false }, fd);
+      console.log("🔍 DEBUG - Form response:", res);
+      console.log("🔍 DEBUG - res.ok:", res?.ok);
+      console.log("🔍 DEBUG - res.error:", res?.error);
+
       if (res?.ok) {
+        console.log("✅ DEBUG - Showing success toast");
         toast.success("Board criado com sucesso!", { id });
         router.refresh();
         reset({ title: "" });
       } else {
-        toast.error(res?.error ?? "Falha ao criar board.", { id });
+        console.log("❌ DEBUG - Showing error toast");
+        // Se for erro de limite, mostra mensagem específica de upgrade
+        if (res?.error?.includes("Limite atingido")) {
+          console.log("🔍 DEBUG - Limit error detected, showing upgrade toast");
+          toast.error("Faça upgrade para o plano Pro", {
+            id,
+            description: "Você atingiu o limite de boards no plano Free.",
+            action: {
+              label: "Ver planos",
+              onClick: () => {
+                window.location.href = "/billing";
+              },
+            },
+          });
+        } else {
+          console.log("🔍 DEBUG - Generic error, showing error toast");
+          toast.error(res?.error ?? "Falha ao criar board.", { id });
+        }
       }
     });
   }

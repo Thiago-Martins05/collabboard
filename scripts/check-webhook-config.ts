@@ -31,7 +31,7 @@ async function checkWebhookConfig() {
   console.log("✅ Webhook secret configurada");
 
   const stripe = new Stripe(secretKey, {
-    apiVersion: "2024-12-18.acacia",
+    apiVersion: "2025-07-30.basil",
   });
 
   try {

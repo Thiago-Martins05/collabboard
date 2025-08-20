@@ -167,15 +167,6 @@ model CardLabel {
 /**
  * Convites & Billing (para etapas futuras) *
  */
-model Invitation {
-  id             String   @id @default(cuid())
-  email          String
-  role           Role     @default(MEMBER)
-  token          String   @unique
-  expiresAt      DateTime
-  organizationId String
-}
-
 model Subscription {
   id               String    @id @default(cuid())
   organizationId   String    @unique

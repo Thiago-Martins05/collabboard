@@ -7,6 +7,7 @@ import { getOrganizationUsage } from "@/lib/limits";
 import { LimitsBanner } from "@/components/limits-banner";
 import { CreateBoardForm } from "./create-board-form";
 import { DeleteBoardButton } from "./delete-board-button";
+import { RenameBoardButton } from "./rename-board-button";
 import { DashboardControls } from "./_components/dashboard-controls";
 
 type Search = {
@@ -111,7 +112,16 @@ export default async function DashboardPage({
                 </p>
               </Link>
 
-              <DeleteBoardButton boardId={board.id} boardTitle={board.title} />
+              <div className="flex items-center gap-1">
+                <RenameBoardButton
+                  boardId={board.id}
+                  boardTitle={board.title}
+                />
+                <DeleteBoardButton
+                  boardId={board.id}
+                  boardTitle={board.title}
+                />
+              </div>
             </div>
           ))}
         </div>

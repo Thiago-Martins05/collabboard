@@ -9,8 +9,9 @@ import { processUpgradeAfterCheckout } from "./actions";
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: { success?: string; canceled?: string };
+  searchParams: Promise<{ success?: string; canceled?: string }>;
 }) {
+  const params = await searchParams;
   const session = await getSession();
   if (!session?.user?.email) {
     redirect("/sign-in");
@@ -23,17 +24,11 @@ export default async function BillingPage({
   }
 
   // Processa upgrade automático se veio do checkout
-  if (searchParams.success === "true") {
-    console.log("🔄 Processando upgrade automático após checkout...");
+  if (params.success === "true") {
     try {
-      const result = await processUpgradeAfterCheckout();
-      if (result.success) {
-        console.log("✅ Upgrade processado automaticamente");
-      } else {
-        console.log("⚠️ Erro no processamento automático:", result.error);
-      }
+      await processUpgradeAfterCheckout();
     } catch (error) {
-      console.error("❌ Erro ao processar upgrade automático:", error);
+      // Erro silencioso - não afeta a experiência do usuário
     }
   }
 
@@ -61,7 +56,7 @@ export default async function BillingPage({
       </div>
 
       {/* Mensagem de sucesso após checkout */}
-      {searchParams.success === "true" && (
+      {params.success === "true" && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">

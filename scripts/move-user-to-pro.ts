@@ -32,13 +32,15 @@ async function moveUserToPro() {
 
     // 2. Buscar o usuário thiagoroyal05@icloud.com
     const user = await db.user.findUnique({
-      where: {
-        email: "thiagoroyal05@icloud.com",
-      },
+      where: { email: "thiagoroyal05@icloud.com" },
       include: {
         memberships: {
           include: {
-            organization: true,
+            organization: {
+              include: {
+                subscription: true,
+              },
+            },
           },
         },
       },

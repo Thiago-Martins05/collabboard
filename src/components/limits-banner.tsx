@@ -34,34 +34,31 @@ export function LimitsBanner({ feature, current, max }: LimitsBannerProps) {
           : "border-yellow-200 bg-yellow-50"
       }`}
     >
-      <div className="flex items-start gap-3">
-        {isAtLimit ? (
-          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5" />
-        ) : (
-          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
-        )}
+      {isAtLimit ? (
+        <AlertTriangle className="h-4 w-4 text-red-600" />
+      ) : (
+        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+      )}
 
-        <div className="flex-1">
-          <AlertTitle
-            className={isAtLimit ? "text-red-800" : "text-yellow-800"}
-          >
-            {isAtLimit
-              ? `Limite de ${feature} atingido!`
-              : `Próximo do limite de ${feature}`}
-          </AlertTitle>
-          <div
-            className={`${
-              isAtLimit ? "text-red-700" : "text-yellow-700"
-            } text-sm leading-relaxed`}
-          >
-            {isAtLimit
-              ? `Você atingiu o máximo de ${max} ${feature} no plano Free. Faça upgrade para o plano Pro para criar mais.`
-              : `Você está usando ${current} de ${max} ${feature} (${Math.round(
-                  usagePercentage
-                )}%). Faça upgrade para o plano Pro para criar mais.`}
-          </div>
-        </div>
+      <AlertTitle className={isAtLimit ? "text-red-800" : "text-yellow-800"}>
+        {isAtLimit
+          ? `Limite de ${feature} atingido!`
+          : `Próximo do limite de ${feature}`}
+      </AlertTitle>
 
+      <AlertDescription
+        className={`${
+          isAtLimit ? "text-red-700" : "text-yellow-700"
+        } text-sm leading-relaxed`}
+      >
+        {isAtLimit
+          ? `Você atingiu o máximo de ${max} ${feature} no plano Free. Faça upgrade para o plano Pro para criar mais.`
+          : `Você está usando ${current} de ${max} ${feature} (${Math.round(
+              usagePercentage
+            )}%). Faça upgrade para o plano Pro para criar mais.`}
+      </AlertDescription>
+
+      <div className="col-start-2 mt-2">
         <Button
           onClick={handleUpgrade}
           size="sm"

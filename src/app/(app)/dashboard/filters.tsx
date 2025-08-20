@@ -12,6 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Extend Window interface to include our custom property
+declare global {
+  interface Window {
+    __db_to?: number;
+  }
+}
+
 export function DashboardFilters() {
   const params = useSearchParams();
   const router = useRouter();
@@ -44,11 +51,10 @@ export function DashboardFilters() {
             const v = e.target.value;
             setQ(v);
             // debounce simples
-            window.clearTimeout((window as any).__db_to);
-            (window as any).__db_to = window.setTimeout(
-              () => push(v, order),
-              250
-            );
+            if (window.__db_to) {
+              window.clearTimeout(window.__db_to);
+            }
+            window.__db_to = window.setTimeout(() => push(v, order), 250);
           }}
         />
       </div>

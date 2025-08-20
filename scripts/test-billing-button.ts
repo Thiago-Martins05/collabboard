@@ -17,7 +17,8 @@ async function testBillingButton() {
 
     // Simular a chamada da action
     console.log("🔄 Chamando createCheckoutSession...");
-    const result = await createCheckoutSession(organizationId, plan);
+    const formData = new FormData();
+    const result = await createCheckoutSession(formData);
 
     console.log("📤 Resultado:", result);
 

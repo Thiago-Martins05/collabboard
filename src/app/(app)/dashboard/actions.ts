@@ -19,21 +19,29 @@ export async function createBoard(
   _prev: CreateBoardState,
   formData: FormData
 ): Promise<CreateBoardState> {
+  console.log("🔍 DEBUG - createBoard called");
+
   const parsed = createBoardSchema.safeParse({
     title: (formData.get("title") as string) ?? "",
   });
   if (!parsed.success) {
+    console.log(
+      "❌ DEBUG - Validation failed:",
+      parsed.error.issues[0]?.message
+    );
     return {
       ok: false,
       error: parsed.error.issues[0]?.message ?? "Dados inválidos.",
     };
   }
 
-  return withRbacGuard(async () => {
+  console.log("✅ DEBUG - Validation passed, executing action");
+
+  try {
     // Busca a organização primária do usuário atual
     const session = await getSession();
     if (!session?.user?.email) {
-      throw new Error("Não autenticado");
+      return { ok: false, error: "Não autenticado" };
     }
 
     const user = await db.user.findUnique({
@@ -42,20 +50,31 @@ export async function createBoard(
     });
 
     if (!user?.memberships?.[0]?.organization) {
-      throw new Error("Organização não encontrada.");
+      return { ok: false, error: "Organização não encontrada." };
     }
 
     const org = user.memberships[0].organization;
 
     // Verifica se o usuário é membro da organização
-    await requireMembership(org.id);
-
-    // Verifica se não excedeu o limite de boards
-    const canCreate = await enforceFeatureLimit(org.id, "boards");
-    if (!canCreate) {
-      return { ok: false, error: "Limite de boards atingido no plano Free." };
+    try {
+      await requireMembership(org.id);
+    } catch (error) {
+      return {
+        ok: false,
+        error: "Sem permissão: não é membro desta organização",
+      };
     }
 
+    // Verifica se não excedeu o limite de boards
+    const limitCheck = await enforceFeatureLimit(org.id, "boards");
+    console.log("🔍 DEBUG - Limit check result:", limitCheck);
+    if (!limitCheck.allowed) {
+      console.log("❌ DEBUG - Limit exceeded, returning error");
+      return { ok: false, error: limitCheck.error };
+    }
+    console.log("✅ DEBUG - Limit check passed, creating board");
+
+    console.log("✅ DEBUG - Creating board in database");
     await db.board.create({
       data: {
         title: parsed.data.title.trim(),
@@ -63,9 +82,16 @@ export async function createBoard(
       },
     });
 
+    console.log("✅ DEBUG - Board created successfully, returning ok: true");
     revalidatePath("/dashboard");
     return { ok: true };
-  });
+  } catch (error) {
+    console.log("❌ DEBUG - Unexpected error:", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Erro interno",
+    };
+  }
 }
 
 /* ============ DELETE ============ */

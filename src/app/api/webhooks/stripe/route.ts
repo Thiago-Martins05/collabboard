@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { PLANS } from "@/lib/stripe";
+import Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -10,7 +11,6 @@ export async function POST(req: Request) {
   try {
     // Verifica se o Stripe está configurado
     if (!stripe) {
-      console.error("Stripe não configurado");
       return NextResponse.json(
         { error: "Stripe not configured" },
         { status: 500 }
@@ -18,40 +18,43 @@ export async function POST(req: Request) {
     }
 
     const body = await req.text();
-    const signature = headers().get("stripe-signature")!;
+    const signature = (await headers()).get("stripe-signature")!;
 
     let event;
 
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
-      console.error("Webhook signature verification failed:", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    const session = event.data.object as any;
-
     switch (event.type) {
       case "checkout.session.completed":
-        await handleCheckoutCompleted(session);
+        await handleCheckoutCompleted(
+          event.data.object as Stripe.Checkout.Session
+        );
         break;
 
       case "customer.subscription.created":
       case "customer.subscription.updated":
-        await handleSubscriptionUpdated(session);
+        await handleSubscriptionUpdated(
+          event.data.object as Stripe.Subscription
+        );
         break;
 
       case "customer.subscription.deleted":
-        await handleSubscriptionDeleted(session);
+        await handleSubscriptionDeleted(
+          event.data.object as Stripe.Subscription
+        );
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        // Evento não tratado - pode ser ignorado
+        break;
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function handleCheckoutCompleted(session: any) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const organizationId = session.metadata?.organizationId;
   if (!organizationId) return;
 
@@ -69,15 +72,15 @@ async function handleCheckoutCompleted(session: any) {
     update: {
       plan: "PRO",
       status: "PRO",
-      stripeSubId: session.subscription,
-      currentPeriodEnd: new Date(session.subscription_data?.trial_end * 1000),
+      stripeSubId: session.subscription as string,
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
     },
     create: {
       organizationId,
       plan: "PRO",
       status: "PRO",
-      stripeSubId: session.subscription,
-      currentPeriodEnd: new Date(session.subscription_data?.trial_end * 1000),
+      stripeSubId: session.subscription as string,
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
     },
   });
 
@@ -96,7 +99,7 @@ async function handleCheckoutCompleted(session: any) {
   });
 }
 
-async function handleSubscriptionUpdated(subscription: any) {
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata?.organizationId;
   if (!organizationId) return;
 
@@ -108,7 +111,7 @@ async function handleSubscriptionUpdated(subscription: any) {
     data: {
       plan,
       status: plan,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
     },
   });
 
@@ -123,7 +126,7 @@ async function handleSubscriptionUpdated(subscription: any) {
   });
 }
 
-async function handleSubscriptionDeleted(subscription: any) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const organizationId = subscription.metadata?.organizationId;
   if (!organizationId) return;
 

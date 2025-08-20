@@ -31,31 +31,25 @@ export function BillingPlans({
   const handleUpgrade = async (plan: string) => {
     if (plan === currentPlan) return;
 
-    console.log("🔧 Iniciando upgrade para:", plan);
-    console.log("📋 Dados:", { organizationId, currentPlan, plan });
-
     setIsLoading(plan);
     try {
-      console.log("🔄 Chamando createCheckoutSession...");
-      const { url, error } = await createCheckoutSession(organizationId, plan);
+      const formData = new FormData();
+      formData.append("plan", plan);
 
-      console.log("📤 Resposta:", { url, error });
+      const { url, error } = await createCheckoutSession(formData);
 
       if (error) {
-        console.error("❌ Erro retornado:", error);
         toast.error(error);
         return;
       }
+
       if (url) {
-        console.log("✅ Redirecionando para:", url);
         window.location.href = url;
       } else {
-        console.error("❌ Nenhuma URL retornada");
-        toast.error("Erro: nenhuma URL de checkout foi gerada");
+        toast.error("Erro ao criar sessão de checkout");
       }
     } catch (error) {
-      console.error("❌ Erro ao criar checkout session:", error);
-      toast.error("Erro ao criar sessão de checkout");
+      toast.error("Erro ao processar upgrade");
     } finally {
       setIsLoading(null);
     }
@@ -64,10 +58,10 @@ export function BillingPlans({
   const handleManageSubscription = async () => {
     setIsLoading("manage");
     try {
-      const { url, error } = await createCheckoutSession(
-        organizationId,
-        "manage"
-      );
+      const formData = new FormData();
+      formData.append("plan", "manage");
+
+      const { url, error } = await createCheckoutSession(formData);
       if (error) {
         toast.error(error);
         return;
@@ -77,7 +71,6 @@ export function BillingPlans({
       }
     } catch (error) {
       toast.error("Erro ao acessar portal do cliente");
-      console.error("Portal error:", error);
     } finally {
       setIsLoading(null);
     }

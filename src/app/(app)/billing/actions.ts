@@ -1,128 +1,65 @@
 "use server";
 
-import { stripe } from "@/lib/stripe";
-import { PLANS } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { stripe } from "@/lib/stripe";
 import { getSession } from "@/lib/session";
+import { ensureUserPrimaryOrganization } from "@/lib/tenant";
 import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 
-export async function createCheckoutSession(
-  organizationId: string,
-  plan: string
-): Promise<{ url?: string; error?: string }> {
+export async function createCheckoutSession(formData: FormData) {
   try {
-    console.log("🔧 Iniciando createCheckoutSession:", {
-      organizationId,
-      plan,
-    });
-
     // Verifica se o Stripe está configurado
     if (!stripe) {
-      console.error("❌ Stripe não configurado");
-      return {
-        error:
-          "Stripe não configurado. Configure as variáveis de ambiente do Stripe.",
-      };
+      return { error: "Stripe não configurado" };
     }
 
-    console.log("✅ Stripe configurado");
+    // Verifica se o usuário tem membership
+    const userSession = await getSession();
+    if (!userSession?.user?.email) {
+      return { error: "Usuário não autenticado" };
+    }
 
-    // Verifica se o usuário tem acesso à organização
-    console.log("🔍 Verificando membership...");
-    await requireMembership(organizationId);
-    console.log("✅ Membership verificado");
-
-    // Busca a organização
-    console.log("🏢 Buscando organização...");
-    const organization = await db.organization.findUnique({
-      where: { id: organizationId },
-      include: { subscription: true },
-    });
-
-    if (!organization) {
-      console.error("❌ Organização não encontrada");
+    // Busca a organização do usuário
+    const org = await ensureUserPrimaryOrganization();
+    if (!org) {
       return { error: "Organização não encontrada" };
     }
 
-    console.log(`✅ Organização encontrada: ${organization.name}`);
+    // Busca ou cria a subscription
+    let subscription = await db.subscription.findUnique({
+      where: { organizationId: org.id },
+    });
 
-    // Se for "manage", redireciona para o portal do cliente
-    if (plan === "manage") {
-      if (!organization.subscription?.stripeCustomerId) {
-        return { error: "Nenhuma assinatura encontrada" };
-      }
-
-      const session = await stripe.billingPortal.sessions.create({
-        customer: organization.subscription.stripeCustomerId,
-        return_url: `${process.env.NEXTAUTH_URL}/billing`,
-      });
-
-      return { url: session.url };
-    }
-
-    // Busca ou cria o customer no Stripe
-    let customerId = organization.subscription?.stripeCustomerId;
-
-    if (!customerId) {
-      const session = await getSession();
-      const customer = await stripe.customers.create({
-        email: session?.user?.email || "test@example.com",
-        metadata: {
-          organizationId,
-        },
-      });
-      customerId = customer.id;
-
-      // Salva o customer ID no banco
-      await db.subscription.upsert({
-        where: { organizationId },
-        update: { stripeCustomerId: customerId },
-        create: {
-          organizationId,
-          stripeCustomerId: customerId,
-          plan: "FREE",
+    if (!subscription) {
+      subscription = await db.subscription.create({
+        data: {
+          organizationId: org.id,
           status: "FREE",
+          plan: "FREE",
         },
       });
     }
 
     // Cria a sessão de checkout
-    console.log("🛒 Criando sessão de checkout...");
-    console.log("📋 Dados:", {
-      customerId,
-      priceId: PLANS.PRO.priceId,
-      successUrl: `${process.env.NEXTAUTH_URL}/billing?success=true`,
-      cancelUrl: `${process.env.NEXTAUTH_URL}/billing?canceled=true`,
-    });
-
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
+    const checkoutSession = await stripe.checkout.sessions.create({
+      customer_email: userSession.user.email || undefined,
       line_items: [
         {
-          price: PLANS.PRO.priceId,
+          price: process.env.STRIPE_PRO_PRICE_ID,
           quantity: 1,
         },
       ],
       mode: "subscription",
-      success_url: `http://localhost:3000/billing?success=true`,
-      cancel_url: `http://localhost:3000/billing?canceled=true`,
+      success_url: `${process.env.NEXTAUTH_URL}/billing?success=true`,
+      cancel_url: `${process.env.NEXTAUTH_URL}/billing?canceled=true`,
       metadata: {
-        organizationId,
-      },
-      subscription_data: {
-        metadata: {
-          organizationId,
-        },
+        organizationId: org.id,
       },
     });
 
-    console.log(`✅ Sessão criada: ${session.id}`);
-    console.log(`🔗 URL: ${session.url}`);
-
-    return { url: session.url };
+    return { url: checkoutSession.url };
   } catch (error) {
-    console.error("Erro ao criar checkout session:", error);
-    return { error: "Erro interno do servidor" };
+    return { error: "Erro ao criar sessão de checkout" };
   }
 }
 
@@ -161,7 +98,6 @@ export async function mockWebhookSuccess(organizationId: string) {
 
     return { success: true };
   } catch (error) {
-    console.error("Erro ao simular webhook:", error);
     return { error: "Erro interno" };
   }
 }
@@ -169,8 +105,6 @@ export async function mockWebhookSuccess(organizationId: string) {
 // Action para processar upgrade automático após checkout
 export async function processUpgradeAfterCheckout() {
   try {
-    console.log("🔄 Processando upgrades pendentes...");
-
     // Buscar organizações FREE que têm customer ID (fizeram checkout)
     const organizations = await db.organization.findMany({
       where: {
@@ -184,15 +118,10 @@ export async function processUpgradeAfterCheckout() {
     });
 
     if (organizations.length === 0) {
-      console.log("✅ Nenhuma organização com upgrade pendente");
       return { success: true, message: "Nenhum upgrade pendente" };
     }
 
-    console.log(`🔄 Processando ${organizations.length} organização(s)`);
-
     for (const organization of organizations) {
-      console.log(`🏢 Processando: ${organization.name}`);
-
       // Atualizar subscription para PRO
       await db.subscription.update({
         where: { organizationId: organization.id },
@@ -207,26 +136,22 @@ export async function processUpgradeAfterCheckout() {
       await db.featureLimit.upsert({
         where: { organizationId: organization.id },
         update: {
-          maxBoards: PLANS.PRO.limits.boards,
-          maxMembers: PLANS.PRO.limits.members,
+          maxBoards: -1, // Ilimitado
+          maxMembers: 50,
         },
         create: {
           organizationId: organization.id,
-          maxBoards: PLANS.PRO.limits.boards,
-          maxMembers: PLANS.PRO.limits.members,
+          maxBoards: -1,
+          maxMembers: 50,
         },
       });
-
-      console.log(`✅ ${organization.name} atualizada para PRO`);
     }
 
-    console.log("🎉 Processamento concluído");
     return {
       success: true,
       message: `${organizations.length} organização(s) atualizada(s)`,
     };
   } catch (error) {
-    console.error("❌ Erro ao processar upgrades:", error);
     return { error: "Erro interno do servidor" };
   }
 }

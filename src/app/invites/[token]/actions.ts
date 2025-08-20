@@ -121,7 +121,6 @@ export async function acceptInvite(
 
     return { ok: true };
   } catch (error) {
-    console.error("Erro ao aceitar convite:", error);
     return {
       ok: false,
       error: "Erro interno ao aceitar convite",
@@ -176,7 +175,6 @@ export async function declineInvite(
 
     return { ok: true };
   } catch (error) {
-    console.error("Erro ao recusar convite:", error);
     return {
       ok: false,
       error: "Erro interno ao recusar convite",

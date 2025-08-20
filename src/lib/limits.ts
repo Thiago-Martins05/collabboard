@@ -1,5 +1,4 @@
 import { db } from "@/lib/db";
-import { toast } from "sonner";
 import { PLANS } from "@/lib/stripe";
 
 export type FeatureType = "boards" | "members" | "columns" | "cards" | "labels";
@@ -81,29 +80,36 @@ export async function checkFeatureLimit(
     return { allowed: false, current: 0, max: 0, feature };
   }
 
+  // Busca a subscription para obter os limites do plano
+  const subscription = await db.subscription.findUnique({
+    where: { organizationId },
+  });
+  const plan = subscription?.plan || "FREE";
+  const planLimits = PLANS[plan as keyof typeof PLANS].limits;
+
   let current = 0;
   let max = 0;
 
   switch (feature) {
     case "boards":
       current = await db.board.count({ where: { organizationId } });
-      max = limits.maxBoards;
+      max = planLimits.boards;
       break;
     case "members":
       current = await db.membership.count({ where: { organizationId } });
-      max = limits.maxMembers;
+      max = planLimits.members;
       break;
     case "columns":
-      // Para colunas, verificamos por board (assumindo limite de 10 colunas por board)
+      // Para colunas, verificamos o total de colunas da organização
       const boards = await db.board.findMany({
         where: { organizationId },
         include: { columns: true },
       });
       current = boards.reduce((sum, board) => sum + board.columns.length, 0);
-      max = boards.length * 10; // 10 colunas por board
+      max = planLimits.columns;
       break;
     case "cards":
-      // Para cards, verificamos por board (assumindo limite de 100 cards por board)
+      // Para cards, verificamos o total de cards da organização
       const boardsWithCards = await db.board.findMany({
         where: { organizationId },
         include: {
@@ -118,10 +124,10 @@ export async function checkFeatureLimit(
           board.columns.reduce((colSum, col) => colSum + col.cards.length, 0),
         0
       );
-      max = boardsWithCards.length * 100; // 100 cards por board
+      max = planLimits.cards;
       break;
     case "labels":
-      // Para labels, verificamos por board (assumindo limite de 20 labels por board)
+      // Para labels, verificamos o total de labels da organização
       const boardsWithLabels = await db.board.findMany({
         where: { organizationId },
         include: { labels: true },
@@ -130,12 +136,30 @@ export async function checkFeatureLimit(
         (sum, board) => sum + board.labels.length,
         0
       );
-      max = boardsWithLabels.length * 20; // 20 labels por board
+      max = planLimits.labels;
       break;
   }
 
+  // Se o limite é ilimitado (-1), sempre permite
+  if (max === -1) {
+    return {
+      allowed: true,
+      current,
+      max,
+      feature,
+    };
+  }
+
+  // Para boards, verifica se já atingiu o limite
+  // Se current >= max, não permite criar mais
+  const allowed = current < max;
+
+  console.log(
+    `🔍 DEBUG - Feature: ${feature}, Current: ${current}, Max: ${max}, Allowed: ${allowed}`
+  );
+
   return {
-    allowed: max === -1 || current < max,
+    allowed,
     current,
     max,
     feature,
@@ -148,7 +172,7 @@ export async function checkFeatureLimit(
 export async function enforceFeatureLimit(
   organizationId: string,
   feature: FeatureType
-): Promise<boolean> {
+): Promise<{ allowed: boolean; error?: string }> {
   const result = await checkFeatureLimit(organizationId, feature);
 
   if (!result.allowed) {
@@ -162,27 +186,16 @@ export async function enforceFeatureLimit(
 
     // Se o limite é ilimitado (-1), sempre permite
     if (result.max === -1) {
-      return true;
+      return { allowed: true };
     }
 
-    toast.error(
-      `Limite atingido! Você atingiu o máximo de ${result.max} ${featureNames[feature]} no plano Free.`,
-      {
-        description: "Faça upgrade para o plano Pro para criar mais.",
-        action: {
-          label: "Ver planos",
-          onClick: () => {
-            // TODO: Redirecionar para página de billing
-            console.log("Redirecionar para billing");
-          },
-        },
-      }
-    );
-
-    return false;
+    return {
+      allowed: false,
+      error: `Limite atingido! Você atingiu o máximo de ${result.max} ${featureNames[feature]} no plano Free. Faça upgrade para o plano Pro para criar mais.`,
+    };
   }
 
-  return true;
+  return { allowed: true };
 }
 
 /**
@@ -191,6 +204,13 @@ export async function enforceFeatureLimit(
 export async function getOrganizationUsage(organizationId: string) {
   const limits = await getFeatureLimits(organizationId);
   if (!limits) return null;
+
+  // Busca a subscription para obter os limites do plano
+  const subscription = await db.subscription.findUnique({
+    where: { organizationId },
+  });
+  const plan = subscription?.plan || "FREE";
+  const planLimits = PLANS[plan as keyof typeof PLANS].limits;
 
   const boards = await db.board.count({ where: { organizationId } });
   const members = await db.membership.count({ where: { organizationId } });
@@ -220,11 +240,11 @@ export async function getOrganizationUsage(organizationId: string) {
   );
 
   return {
-    boards: { current: boards, max: limits.maxBoards },
-    members: { current: members, max: limits.maxMembers },
-    columns: { current: totalColumns, max: boards * 10 },
-    cards: { current: totalCards, max: boards * 100 },
-    labels: { current: totalLabels, max: boards * 20 },
+    boards: { current: boards, max: planLimits.boards },
+    members: { current: members, max: planLimits.members },
+    columns: { current: totalColumns, max: planLimits.columns },
+    cards: { current: totalCards, max: planLimits.cards },
+    labels: { current: totalLabels, max: planLimits.labels },
   };
 }
 

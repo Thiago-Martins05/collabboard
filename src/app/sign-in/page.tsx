@@ -44,7 +44,6 @@ export default function SignInPage() {
         window.location.href = "/dashboard";
       }
     } catch (error) {
-      console.error("Erro no login:", error);
       toast.error("Erro inesperado. Tente novamente.");
     } finally {
       setIsLoading(false);
@@ -128,10 +127,9 @@ export default function SignInPage() {
             <div className="grid gap-4">
               <Button
                 onClick={() => {
-                  console.log("🔍 Tentando login com GitHub...");
                   signIn("github", { callbackUrl: "/dashboard" }).catch(
                     (error) => {
-                      console.error("❌ Erro no login GitHub:", error);
+                      toast.error("Erro ao fazer login com GitHub");
                     }
                   );
                 }}

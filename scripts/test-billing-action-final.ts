@@ -7,7 +7,7 @@ config({ path: ".env" });
 // Configuração direta do Stripe para o teste
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
+  apiVersion: "2025-07-30.basil",
 });
 
 // Simular a configuração dos planos
@@ -67,7 +67,7 @@ async function testBillingActionFinal() {
     }
 
     const organizationId = organization.id;
-    const plan = "PRO";
+    const plan: "PRO" | "manage" = "PRO";
 
     console.log("🔧 Iniciando createCheckoutSession:", {
       organizationId,
@@ -95,20 +95,6 @@ async function testBillingActionFinal() {
     }
 
     console.log(`✅ Organização encontrada: ${org.name}`);
-
-    // Se for "manage", redireciona para o portal do cliente
-    if (plan === "manage") {
-      if (!org.subscription?.stripeCustomerId) {
-        return { error: "Nenhuma assinatura encontrada" };
-      }
-
-      const session = await stripe.billingPortal.sessions.create({
-        customer: org.subscription.stripeCustomerId,
-        return_url: `${process.env.NEXTAUTH_URL}/billing`,
-      });
-
-      return { url: session.url };
-    }
 
     // Busca ou cria o customer no Stripe
     let customerId = org.subscription?.stripeCustomerId;

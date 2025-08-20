@@ -270,26 +270,18 @@ export async function inviteMember(
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // Expira em 7 dias
 
+    // Salva o convite no banco
     const invite = await db.invite.create({
       data: {
-        token,
-        email,
-        role,
         organizationId: org.id,
+        email,
+        token,
+        role,
         invitedById: user.id,
         expiresAt,
       },
     });
 
-    // Mock do envio de e-mail (apenas log)
-    console.log(`[INVITE] Convite enviado para ${email}:`);
-    console.log(`[INVITE] Token: ${token}`);
-    console.log(`[INVITE] Link: http://localhost:3000/invites/${token}`);
-    console.log(`[INVITE] Organização: ${org.name}`);
-    console.log(`[INVITE] Role: ${role}`);
-    console.log(`[INVITE] Expira em: ${expiresAt.toISOString()}`);
-
-    revalidatePath("/settings/members");
-    return { ok: true };
+    return { success: true, invite };
   });
 }

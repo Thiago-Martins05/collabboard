@@ -17,14 +17,6 @@ const isPusherClientConfigured = () => {
   const hasKey = !!process.env.NEXT_PUBLIC_PUSHER_KEY;
   const hasCluster = !!process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
 
-  console.log("🔧 Debug Pusher Client Config:", {
-    NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY,
-    NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-    hasKey,
-    hasCluster,
-    isConfigured: hasKey && hasCluster,
-  });
-
   return !!(hasKey && hasCluster);
 };
 

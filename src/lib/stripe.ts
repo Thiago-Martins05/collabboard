@@ -9,7 +9,7 @@ export const stripe = (() => {
     return null;
   }
   return new Stripe(secretKey, {
-    apiVersion: "2024-12-18.acacia",
+    apiVersion: "2025-07-30.basil",
   });
 })();
 
@@ -33,7 +33,7 @@ export const PLANS = {
       boards: 5,
       members: 5,
       columns: 10,
-      cards: 100,
+      cards: 5, // 5 cards no total para plano free
       labels: 20,
     },
   },
@@ -45,7 +45,7 @@ export const PLANS = {
       boards: -1, // Ilimitado
       members: 50,
       columns: 50,
-      cards: 1000,
+      cards: -1, // Ilimitado para plano PRO
       labels: 100,
     },
   },

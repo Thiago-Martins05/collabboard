@@ -14,7 +14,8 @@ async function testBillingAction() {
 
     console.log("📋 Parâmetros:", { organizationId, plan });
 
-    const result = await createCheckoutSession(organizationId, plan);
+    const formData = new FormData();
+    const result = await createCheckoutSession(formData);
 
     console.log("📤 Resultado:", result);
 
