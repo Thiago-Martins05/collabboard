@@ -63,7 +63,6 @@ export async function createCheckoutSession(formData: FormData) {
   }
 }
 
-// Mock function para simular webhook (para desenvolvimento)
 export async function mockWebhookSuccess(organizationId: string) {
   try {
     // Atualiza a subscription para PRO
@@ -72,7 +71,7 @@ export async function mockWebhookSuccess(organizationId: string) {
       update: {
         plan: "PRO",
         status: "PRO",
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
       create: {
         organizationId,
@@ -86,7 +85,7 @@ export async function mockWebhookSuccess(organizationId: string) {
     await db.featureLimit.upsert({
       where: { organizationId },
       update: {
-        maxBoards: -1, // Ilimitado
+        maxBoards: -1,
         maxMembers: 50,
       },
       create: {
@@ -102,12 +101,8 @@ export async function mockWebhookSuccess(organizationId: string) {
   }
 }
 
-// Action para processar upgrade automático após checkout
 export async function processUpgradeAfterCheckout() {
   try {
-    console.log("🔄 DEBUG - processUpgradeAfterCheckout iniciado");
-
-    // Buscar organizações FREE que têm customer ID OU subscription ID (fizeram checkout)
     const organizations = await db.organization.findMany({
       where: {
         subscription: {
@@ -127,42 +122,24 @@ export async function processUpgradeAfterCheckout() {
       },
     });
 
-    console.log("🔍 DEBUG - Organizações encontradas:", organizations.length);
-    console.log(
-      "🔍 DEBUG - Organizações:",
-      organizations.map((org) => ({
-        id: org.id,
-        subscription: org.subscription,
-      }))
-    );
-
     if (organizations.length === 0) {
-      console.log("⚠️ DEBUG - Nenhum upgrade pendente");
       return { success: true, message: "Nenhum upgrade pendente" };
     }
 
     for (const organization of organizations) {
-      console.log(`🔄 DEBUG - Processando organização: ${organization.id}`);
-
-      // Atualizar subscription para PRO
       await db.subscription.update({
         where: { organizationId: organization.id },
         data: {
           plan: "PRO",
           status: "PRO",
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
 
-      console.log(
-        `✅ DEBUG - Subscription atualizada para PRO: ${organization.id}`
-      );
-
-      // Atualizar feature limits
       await db.featureLimit.upsert({
         where: { organizationId: organization.id },
         update: {
-          maxBoards: -1, // Ilimitado
+          maxBoards: -1,
           maxMembers: 50,
         },
         create: {
@@ -171,19 +148,13 @@ export async function processUpgradeAfterCheckout() {
           maxMembers: 50,
         },
       });
-
-      console.log(`✅ DEBUG - Feature limits atualizados: ${organization.id}`);
     }
 
-    console.log(
-      `🎉 DEBUG - Processamento concluído: ${organizations.length} organização(s) atualizada(s)`
-    );
     return {
       success: true,
       message: `${organizations.length} organização(s) atualizada(s)`,
     };
   } catch (error) {
-    console.error("❌ DEBUG - Erro no processUpgradeAfterCheckout:", error);
     return { error: "Erro interno do servidor" };
   }
 }

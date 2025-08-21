@@ -73,14 +73,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       plan: "PRO",
       status: "PRO",
       stripeSubId: session.subscription as string,
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
     create: {
       organizationId,
       plan: "PRO",
       status: "PRO",
       stripeSubId: session.subscription as string,
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
 
@@ -111,7 +111,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     data: {
       plan,
       status: plan,
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
 

@@ -42,10 +42,10 @@ export const PLANS = {
     price: 29,
     priceId: process.env.STRIPE_PRO_PRICE_ID,
     limits: {
-      boards: -1, // Ilimitado
+      boards: -1,
       members: 50,
       columns: 50,
-      cards: -1, // Ilimitado para plano PRO
+      cards: -1,
       labels: 100,
     },
   },
