@@ -1,0 +1,2 @@
+# substitui sk_test_... e sk_live_... por placeholder
+regex:(?i)sk_(test|live)_[0-9a-zA-Z]+ ==> STRIPE_SECRET_PLACEHOLDER
