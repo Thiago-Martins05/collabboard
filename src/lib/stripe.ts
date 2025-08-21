@@ -1,7 +1,6 @@
 import Stripe from "stripe";
 import { loadStripe } from "@stripe/stripe-js";
 
-// Configuração do servidor
 export const stripe = (() => {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
@@ -13,7 +12,6 @@ export const stripe = (() => {
   });
 })();
 
-// Configuração do cliente
 export const getStripe = () => {
   if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
     console.warn(

@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  rectSortingStrategy, // ✅ horizontal support
+  rectSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { ReactNode, useState } from "react";

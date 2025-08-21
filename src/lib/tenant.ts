@@ -74,7 +74,7 @@ export async function ensureUserPrimaryOrganization() {
       data: {
         name: baseName,
         slug,
-        ownerId: dbUser.id, // ✅ agora usamos o ID do usuário que existe no banco
+        ownerId: dbUser.id,
       },
     });
 

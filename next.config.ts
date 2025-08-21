@@ -17,7 +17,6 @@ const nextConfig = {
   },
 };
 
-// Configuração do Sentry
 const sentryWebpackPluginOptions = {
   // Forneça um token de upload do Sentry (obrigatório)
   // Você pode criar um em https://sentry.io/settings/account/api/auth-tokens/

@@ -38,31 +38,27 @@ export async function GET(req: Request) {
     }
 
     if (action === "config") {
-      // Verifica a configuração do webhook
       return NextResponse.json({
         webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
-          ? "✅ Configurado"
-          : "❌ Não configurado",
+          ? "Configurado"
+          : "Não configurado",
         stripeSecretKey: process.env.STRIPE_SECRET_KEY
-          ? "✅ Configurado"
-          : "❌ Não configurado",
+          ? "Configurado"
+          : "Não configurado",
         stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-          ? "✅ Configurado"
-          : "❌ Não configurado",
+          ? "Configurado"
+          : "Não configurado",
         proPriceId: process.env.STRIPE_PRO_PRICE_ID
-          ? "✅ Configurado"
-          : "❌ Não configurado",
+          ? "Configurado"
+          : "Não configurado",
         nextAuthUrl: process.env.NEXTAUTH_URL
-          ? "✅ Configurado"
-          : "❌ Não configurado",
-        stripe: stripe ? "✅ Configurado" : "❌ Não configurado",
+          ? "Configurado"
+          : "Não configurado",
+        stripe: stripe ? "Configurado" : "Não configurado",
       });
     }
 
     if (action === "revalidate") {
-      // Força revalidação do cache
-      console.log("🔄 Forçando revalidação para org:", organizationId);
-
       const subscription = await db.subscription.findUnique({
         where: { organizationId: organizationId! },
       });
@@ -81,10 +77,6 @@ export async function GET(req: Request) {
     }
 
     if (action === "test-real-webhook") {
-      // Testa se o webhook real está sendo chamado
-      console.log("🧪 Testando webhook real para org:", organizationId);
-
-      // Simula um evento real do Stripe
       const realEvent = {
         id: "evt_test_" + Date.now(),
         object: "event",
@@ -111,13 +103,9 @@ export async function GET(req: Request) {
         type: "checkout.session.completed",
       };
 
-      // Simula o body e signature do webhook
       const body = JSON.stringify(realEvent);
       const signature =
         "t=" + Math.floor(Date.now() / 1000) + ",v1=fake_signature";
-
-      console.log("📝 Simulando webhook real com body:", body.length, "bytes");
-      console.log("🔐 Simulando signature:", signature);
 
       return NextResponse.json({
         success: true,
@@ -171,7 +159,7 @@ export async function GET(req: Request) {
           timestamp: new Date().toISOString(),
         });
       } catch (error) {
-        console.error("❌ Erro ao resetar plano:", error);
+        console.error("Erro ao resetar plano:", error);
         return NextResponse.json(
           { error: "Erro ao resetar plano" },
           { status: 500 }
@@ -180,10 +168,6 @@ export async function GET(req: Request) {
     }
 
     if (action === "simulate") {
-      // Simula o webhook do Stripe com dados reais
-      console.log("🎭 Simulando webhook do Stripe para org:", organizationId);
-
-      // Simula um checkout session completed com dados mais realistas
       const mockSession = {
         id: "cs_test_" + Date.now(),
         object: "checkout.session",
@@ -205,8 +189,6 @@ export async function GET(req: Request) {
       });
     }
 
-    console.log("🧪 Testando webhook manualmente para org:", organizationId);
-
     // Simula um checkout session completed
     const mockSession = {
       metadata: { organizationId: organizationId! },
@@ -220,19 +202,15 @@ export async function GET(req: Request) {
       message: "Webhook testado com sucesso",
     });
   } catch (error) {
-    console.error("❌ Erro no teste do webhook:", error);
+    console.error("Erro no teste do webhook:", error);
     return NextResponse.json({ error: "Test failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    console.log("🔔 Webhook Stripe recebido");
-    console.log("📋 Headers:", Object.fromEntries((await headers()).entries()));
-
-    // Verifica se o Stripe está configurado
     if (!stripe) {
-      console.error("❌ Stripe não configurado");
+      console.error("Stripe não configurado");
       return NextResponse.json(
         { error: "Stripe not configured" },
         { status: 500 }
@@ -242,23 +220,17 @@ export async function POST(req: Request) {
     const body = await req.text();
     const signature = (await headers()).get("stripe-signature")!;
 
-    console.log("📝 Body length:", body.length);
-    console.log("🔐 Signature:", signature ? "Presente" : "Ausente");
-
     let event;
 
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-      console.log("✅ Evento Stripe verificado:", event.type);
-      console.log("📋 Event data:", JSON.stringify(event.data, null, 2));
     } catch (err) {
-      console.error("❌ Assinatura inválida:", err);
+      console.error("Assinatura inválida:", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
     switch (event.type) {
       case "checkout.session.completed":
-        console.log("🛒 Checkout completado, processando...");
         await handleCheckoutCompleted(
           event.data.object as Stripe.Checkout.Session
         );
@@ -266,27 +238,21 @@ export async function POST(req: Request) {
 
       case "customer.subscription.created":
       case "customer.subscription.updated":
-        console.log("📅 Subscription atualizada, processando...");
         await handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription
         );
         break;
 
       case "customer.subscription.deleted":
-        console.log("🗑️ Subscription deletada, processando...");
         await handleSubscriptionDeleted(
           event.data.object as Stripe.Subscription
         );
-        break;
-
-      default:
-        console.log("ℹ️ Evento não tratado:", event.type);
         break;
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("❌ Erro no webhook:", error);
+    console.error("Erro no webhook:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -295,16 +261,11 @@ export async function POST(req: Request) {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  console.log("🔍 Processando checkout completado");
-  console.log("📋 Session metadata:", session.metadata);
-
   const organizationId = session.metadata?.organizationId;
   if (!organizationId) {
-    console.error("❌ organizationId não encontrado no metadata");
+    console.error("organizationId não encontrado no metadata");
     return;
   }
-
-  console.log("🏢 OrganizationId:", organizationId);
 
   try {
     // Atualiza a subscription para PRO
@@ -325,8 +286,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       },
     });
 
-    console.log("✅ Subscription atualizada:", subscription);
-
     // Atualiza os limites
     const featureLimit = await db.featureLimit.upsert({
       where: { organizationId },
@@ -340,10 +299,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         maxMembers: PLANS.PRO.limits.members,
       },
     });
-
-    console.log("✅ Feature limits atualizados:", featureLimit);
   } catch (error) {
-    console.error("❌ Erro ao processar checkout:", error);
+    console.error("Erro ao processar checkout:", error);
     throw error;
   }
 }

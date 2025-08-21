@@ -15,7 +15,7 @@ export default async function BoardPage({
 }: {
   params: Promise<{ boardId: string }>;
 }) {
-  const { boardId } = await params; // ✅ aguarda params
+  const { boardId } = await params;
 
   const board = await db.board.findUnique({
     where: { id: boardId },

@@ -20,7 +20,6 @@ const isPusherClientConfigured = () => {
   return !!(hasKey && hasCluster);
 };
 
-// Configuração do servidor Pusher (opcional)
 export const pusherServer = isPusherServerConfigured()
   ? new PusherServer({
       appId: process.env.PUSHER_APP_ID!,
@@ -31,7 +30,6 @@ export const pusherServer = isPusherServerConfigured()
     })
   : null;
 
-// Configuração do cliente Pusher (opcional)
 export const pusherClient = isPusherClientConfigured()
   ? new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
