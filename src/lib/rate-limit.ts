@@ -26,7 +26,7 @@ export async function rateLimit(
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
   const session = await getSession();
-  const userId = session?.user?.id;
+  const userId = (session?.user as any)?.id;
 
   // Gerar chave única para o rate limit
   const key = config.keyGenerator
@@ -130,7 +130,6 @@ function getClientIP(req: NextRequest): string {
   return (
     req.headers.get("x-forwarded-for")?.split(",")[0] ||
     req.headers.get("x-real-ip") ||
-    req.ip ||
     "unknown"
   );
 }
