@@ -11,7 +11,6 @@ import { Users, CreditCard, Sparkles, Settings } from "lucide-react";
 export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
-      {/* Header com branding */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-4">
           <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl">
@@ -29,7 +28,6 @@ export default function SettingsPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Link href="/settings/members">
           <Card className="group relative rounded-2xl border bg-card/90 backdrop-blur-sm p-6 shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02] border-muted/50 hover:border-muted cursor-pointer">
-            {/* Gradiente sutil no fundo */}
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-purple-50/30 dark:from-blue-950/10 dark:to-purple-950/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
 
             <div className="relative">
@@ -58,7 +56,6 @@ export default function SettingsPage() {
 
         <Link href="/billing">
           <Card className="group relative rounded-2xl border bg-card/90 backdrop-blur-sm p-6 shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02] border-muted/50 hover:border-muted cursor-pointer">
-            {/* Gradiente sutil no fundo */}
             <div className="absolute inset-0 bg-gradient-to-br from-purple-50/30 to-blue-50/30 dark:from-purple-950/10 dark:to-blue-950/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
 
             <div className="relative">

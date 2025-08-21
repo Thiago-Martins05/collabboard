@@ -8,22 +8,31 @@ import { withRbacGuard, requireMembership } from "@/lib/rbac-guard";
 
 export async function createCheckoutSession(formData: FormData) {
   try {
+    console.log("🛒 Criando sessão de checkout...");
+
     // Verifica se o Stripe está configurado
     if (!stripe) {
+      console.error("❌ Stripe não configurado");
       return { error: "Stripe não configurado" };
     }
 
     // Verifica se o usuário tem membership
     const userSession = await getSession();
     if (!userSession?.user?.email) {
+      console.error("❌ Usuário não autenticado");
       return { error: "Usuário não autenticado" };
     }
+
+    console.log("👤 Usuário:", userSession.user.email);
 
     // Busca a organização do usuário
     const org = await ensureUserPrimaryOrganization();
     if (!org) {
+      console.error("❌ Organização não encontrada");
       return { error: "Organização não encontrada" };
     }
+
+    console.log("🏢 Organização:", org.id, org.name);
 
     // Busca ou cria a subscription
     let subscription = await db.subscription.findUnique({
@@ -31,6 +40,7 @@ export async function createCheckoutSession(formData: FormData) {
     });
 
     if (!subscription) {
+      console.log("📝 Criando nova subscription FREE");
       subscription = await db.subscription.create({
         data: {
           organizationId: org.id,
@@ -38,7 +48,12 @@ export async function createCheckoutSession(formData: FormData) {
           plan: "FREE",
         },
       });
+    } else {
+      console.log("📋 Subscription existente:", subscription.plan);
     }
+
+    console.log("🔑 STRIPE_PRO_PRICE_ID:", process.env.STRIPE_PRO_PRICE_ID);
+    console.log("🌐 NEXTAUTH_URL:", process.env.NEXTAUTH_URL);
 
     // Cria a sessão de checkout
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -57,8 +72,12 @@ export async function createCheckoutSession(formData: FormData) {
       },
     });
 
+    console.log("✅ Sessão de checkout criada:", checkoutSession.id);
+    console.log("🔗 URL de checkout:", checkoutSession.url);
+
     return { url: checkoutSession.url };
   } catch (error) {
+    console.error("❌ Erro ao criar sessão de checkout:", error);
     return { error: "Erro ao criar sessão de checkout" };
   }
 }
@@ -156,5 +175,63 @@ export async function processUpgradeAfterCheckout() {
     };
   } catch (error) {
     return { error: "Erro interno do servidor" };
+  }
+}
+
+export async function forceUpgradeToPro() {
+  try {
+    console.log("🚀 Forçando upgrade para PRO...");
+
+    const userSession = await getSession();
+    if (!userSession?.user?.email) {
+      return { error: "Usuário não autenticado" };
+    }
+
+    const org = await ensureUserPrimaryOrganization();
+    if (!org) {
+      return { error: "Organização não encontrada" };
+    }
+
+    console.log("🏢 Atualizando organização:", org.id);
+
+    // Força a atualização para PRO
+    const subscription = await db.subscription.upsert({
+      where: { organizationId: org.id },
+      update: {
+        plan: "PRO",
+        status: "PRO",
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+      create: {
+        organizationId: org.id,
+        plan: "PRO",
+        status: "PRO",
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    // Atualiza os limites
+    const featureLimit = await db.featureLimit.upsert({
+      where: { organizationId: org.id },
+      update: {
+        maxBoards: -1,
+        maxMembers: 50,
+      },
+      create: {
+        organizationId: org.id,
+        maxBoards: -1,
+        maxMembers: 50,
+      },
+    });
+
+    console.log("✅ Upgrade forçado realizado:", {
+      subscription,
+      featureLimit,
+    });
+
+    return { success: true, subscription, featureLimit };
+  } catch (error) {
+    console.error("❌ Erro ao forçar upgrade:", error);
+    return { error: "Erro ao forçar upgrade" };
   }
 }

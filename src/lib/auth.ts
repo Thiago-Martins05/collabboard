@@ -33,7 +33,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Busca ou cria o usuário
           const user = await db.user.upsert({
             where: { email: credentials.email },
             update: {
@@ -56,18 +55,25 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    GitHub({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
-    }),
-    Google({
-      clientId: process.env.GOOGLE_ID || "",
-      clientSecret: process.env.GOOGLE_SECRET || "",
-    }),
+    ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET
+      ? [
+          GitHub({
+            clientId: process.env.GITHUB_ID,
+            clientSecret: process.env.GITHUB_SECRET,
+          }),
+        ]
+      : []),
+    ...(process.env.GOOGLE_ID && process.env.GOOGLE_SECRET
+      ? [
+          Google({
+            clientId: process.env.GOOGLE_ID,
+            clientSecret: process.env.GOOGLE_SECRET,
+          }),
+        ]
+      : []),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Para login com email ou OAuth
       try {
         await ensureUserPrimaryOrganization();
       } catch (e) {
@@ -93,7 +99,6 @@ export const authOptions: NextAuthOptions = {
   },
 
   events: {
-    // dispara na 1ª vez que o usuário é criado no banco
     async createUser({ user }) {
       try {
         await ensureUserPrimaryOrganization();
@@ -102,7 +107,6 @@ export const authOptions: NextAuthOptions = {
       }
     },
 
-    // fallback: se por algum motivo createUser não rodar, garantimos no 1º sign-in
     async signIn({ user, isNewUser }) {
       if (!isNewUser) return;
       try {

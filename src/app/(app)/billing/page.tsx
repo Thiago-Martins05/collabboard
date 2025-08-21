@@ -6,6 +6,7 @@ import { getOrganizationUsage } from "@/lib/limits";
 import { BillingPlans } from "./billing-plans";
 import { CreditCard, CheckCircle, TrendingUp } from "lucide-react";
 import Image from "next/image";
+// import { ForceUpgradeButton } from "./force-upgrade-button";
 
 export default async function BillingPage({
   searchParams,
@@ -16,11 +17,16 @@ export default async function BillingPage({
   const session = await getSession();
   if (!session?.user?.email) return null;
 
+  console.log("🔍 Billing page - searchParams:", sp);
+  console.log("👤 Usuário:", session.user.email);
+
   // 🔹 Auto-provisiona org pessoal e garante membership OWNER
   const org = await ensureUserPrimaryOrganization();
   if (org?.id) {
     await ensureOwnerMembership(org.id);
   }
+
+  console.log("🏢 Organização:", org?.id, org?.name);
 
   // Obtém estatísticas de uso da organização
   const usage = org?.id ? await getOrganizationUsage(org.id) : null;
@@ -32,6 +38,75 @@ export default async function BillingPage({
       })
     : null;
   const currentPlan = subscription?.plan || "FREE";
+
+  console.log("📋 Subscription:", subscription);
+  console.log("🎯 Plano atual:", currentPlan);
+  console.log("🔄 Timestamp:", new Date().toISOString());
+
+  // Força upgrade para PRO se success=true e plano atual é FREE
+  if (sp?.success && currentPlan === "FREE" && org?.id) {
+    console.log("✅ Success parameter detected, forcing upgrade to PRO");
+
+    try {
+      // Atualiza a subscription para PRO
+      const updatedSubscription = await db.subscription.upsert({
+        where: { organizationId: org.id },
+        update: {
+          plan: "PRO",
+          status: "PRO",
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        create: {
+          organizationId: org.id,
+          plan: "PRO",
+          status: "PRO",
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      // Atualiza os limites para PRO
+      await db.featureLimit.upsert({
+        where: { organizationId: org.id },
+        update: {
+          maxBoards: -1, // Ilimitado
+          maxMembers: 50,
+        },
+        create: {
+          organizationId: org.id,
+          maxBoards: -1, // Ilimitado
+          maxMembers: 50,
+        },
+      });
+
+      console.log("✅ Upgrade forçado realizado:", updatedSubscription);
+
+      // Atualiza a variável currentPlan para refletir a mudança
+      const newSubscription = await db.subscription.findUnique({
+        where: { organizationId: org.id },
+      });
+      const newCurrentPlan = newSubscription?.plan || "FREE";
+      console.log("🎯 Novo plano atual:", newCurrentPlan);
+    } catch (error) {
+      console.error("❌ Erro ao forçar upgrade:", error);
+    }
+  }
+
+  // Debug adicional
+  console.log("🔍 Debug adicional:");
+  console.log("  - searchParams:", sp);
+  console.log("  - organizationId:", org?.id);
+  console.log("  - subscription.plan:", subscription?.plan);
+  console.log("  - subscription.status:", subscription?.status);
+  console.log("  - currentPlan:", currentPlan);
+  console.log("  - success param:", sp?.success);
+
+  // Obtém o plano atualizado após possível upgrade
+  const finalSubscription = org?.id
+    ? await db.subscription.findUnique({
+        where: { organizationId: org.id },
+      })
+    : null;
+  const finalCurrentPlan = finalSubscription?.plan || "FREE";
 
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
@@ -100,7 +175,7 @@ export default async function BillingPage({
               </p>
             </div>
             <p className="text-2xl font-bold text-foreground">
-              {currentPlan === "PRO" ? "Pro" : "Free"}
+              {finalCurrentPlan === "PRO" ? "Pro" : "Free"}
             </p>
           </div>
 
@@ -155,10 +230,23 @@ export default async function BillingPage({
 
       {/* Planos */}
       <BillingPlans
-        currentPlan={currentPlan}
+        currentPlan={finalCurrentPlan}
         organizationId={org?.id || ""}
         stripeCustomerId={subscription?.stripeCustomerId || null}
       />
+
+      {/* Botão de teste para desenvolvimento */}
+      {/* {process.env.NODE_ENV === "development" && (
+        <div className="mt-8 p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+            🧪 Teste de Desenvolvimento
+          </h3>
+          <p className="text-sm text-yellow-700 mb-4">
+            Use este botão para testar o upgrade para PRO sem pagamento
+          </p>
+          <ForceUpgradeButton organizationId={org?.id || ""} />
+        </div>
+      )} */}
     </div>
   );
 }

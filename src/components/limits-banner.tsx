@@ -11,7 +11,6 @@ interface LimitsBannerProps {
 }
 
 export function LimitsBanner({ feature, current, max }: LimitsBannerProps) {
-  // Se o limite é ilimitado (-1), não mostra o banner
   if (max === -1) return null;
 
   const isAtLimit = current >= max;
@@ -111,7 +110,6 @@ export function LimitsBanner({ feature, current, max }: LimitsBannerProps) {
           {/* Botão de upgrade */}
           <Button
             onClick={() => {
-              // Redirecionar para a página de billing
               window.location.href = "/billing";
             }}
             className={`w-full bg-gradient-to-r shadow-lg ${

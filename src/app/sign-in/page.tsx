@@ -9,6 +9,7 @@ import { LogIn, Github, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
+import { GoogleIcon } from "@/components/ui/google-icon";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -21,7 +22,7 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      const result = await signIn("email", {
+      const result = await signIn("email-login", {
         email,
         name,
         callbackUrl: "/dashboard",
@@ -29,9 +30,10 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
-        toast.error("Erro ao enviar email de login");
+        toast.error("Erro ao fazer login");
       } else {
-        toast.success("Email de login enviado! Verifique sua caixa de entrada.");
+        toast.success("Login realizado com sucesso!");
+        router.push("/dashboard");
       }
     } catch (error) {
       toast.error("Erro ao fazer login");
@@ -42,15 +44,13 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-blue-100/30 dark:bg-blue-900/10 blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-purple-100/30 dark:bg-purple-900/10 blur-3xl"></div>
       </div>
 
       <main className="relative min-h-dvh grid place-items-center p-6">
-        <div className="w-full max-w-md">
-          {/* Logo and branding */}
+        <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
               <Image
@@ -69,8 +69,7 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Login card */}
-          <div className="w-full rounded-2xl border bg-card/80 backdrop-blur-sm p-8 text-card-foreground shadow-xl">
+          <div className="w-full rounded-2xl border bg-card/80 backdrop-blur-sm p-6 text-card-foreground shadow-xl">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-semibold">Bem-vindo de volta</h2>
               <p className="text-sm text-muted-foreground mt-2">
@@ -78,15 +77,17 @@ export default function SignInPage() {
               </p>
             </div>
 
-            {/* Formulário de Email */}
-            <form onSubmit={handleEmailLogin} className="grid gap-4 mb-6">
+            <form
+              onSubmit={handleEmailLogin}
+              className="flex flex-col gap-3 mb-6 w-full"
+            >
               <div className="space-y-2">
                 <Input
                   type="email"
                   placeholder="seu-email@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-12"
+                  className="h-11 w-full px-4"
                   required
                 />
                 <Input
@@ -94,21 +95,20 @@ export default function SignInPage() {
                   placeholder="Seu nome (opcional)"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-12"
+                  className="h-11 w-full px-4"
                 />
               </div>
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white"
+                size="default"
               >
-                <LogIn className="mr-3 h-5 w-5" />
+                <LogIn className="mr-2 h-4 w-4" />
                 {isLoading ? "Entrando..." : "Entrar com Email"}
               </Button>
             </form>
 
-            {/* Divider */}
             <div className="relative mb-6">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
@@ -120,7 +120,7 @@ export default function SignInPage() {
               </div>
             </div>
 
-            <div className="grid gap-4">
+            <div className="flex flex-col gap-3 items-center">
               <Button
                 onClick={() => {
                   signIn("github", { callbackUrl: "/dashboard" }).catch(
@@ -129,20 +129,26 @@ export default function SignInPage() {
                     }
                   );
                 }}
-                className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white"
-                size="lg"
+                className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
+                size="default"
               >
-                <Github className="mr-3 h-5 w-5" />
+                <Github className="mr-2 h-4 w-4" />
                 Continuar com GitHub
               </Button>
 
               <Button
-                onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-                className="w-full h-12 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200"
-                size="lg"
+                onClick={() => {
+                  signIn("google", { callbackUrl: "/dashboard" }).catch(
+                    (error) => {
+                      toast.error("Erro ao fazer login com Google");
+                    }
+                  );
+                }}
+                className="w-full h-11 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200"
+                size="default"
                 variant="outline"
               >
-                <Mail className="mr-3 h-5 w-5" />
+                <GoogleIcon className="mr-2 h-4 w-4" />
                 Continuar com Google
               </Button>
             </div>

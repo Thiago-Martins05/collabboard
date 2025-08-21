@@ -39,7 +39,7 @@ export function CreateCardForm({
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: "" },
+    defaultValues: { title: "", description: "" },
   });
 
   const [isPending, startTransition] = React.useTransition();
@@ -57,7 +57,7 @@ export function CreateCardForm({
       if (res?.ok) {
         toast.success("Card criado com sucesso!", { id });
         router.refresh();
-        reset({ title: "" });
+        reset({ title: "", description: "" });
       } else {
         toast.error(res?.error ?? "Erro ao criar card", { id });
       }
@@ -75,9 +75,7 @@ export function CreateCardForm({
           {...register("title")}
         />
         {errors.title && (
-          <p className="text-xs text-destructive">
-            {errors.title.message}
-          </p>
+          <p className="text-xs text-destructive">{errors.title.message}</p>
         )}
       </div>
 

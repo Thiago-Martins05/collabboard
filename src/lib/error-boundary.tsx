@@ -29,7 +29,6 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Capturar erro no Sentry
     Sentry.captureException(error, {
       contexts: {
         react: {
@@ -125,7 +124,6 @@ function DefaultErrorFallback({
   );
 }
 
-// Hook para capturar erros em componentes funcionais
 export function useErrorHandler() {
   return (error: Error, context?: Record<string, any>) => {
     Sentry.captureException(error, {

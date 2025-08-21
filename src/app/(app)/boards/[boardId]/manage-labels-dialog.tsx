@@ -23,7 +23,9 @@ import { createLabel, deleteLabel, updateLabel } from "./label-actions";
 
 const labelSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório").max(50, "Máximo 50 caracteres"),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
+  color: z
+    .string()
+    .regex(/^#[0-9A-F]{6}$/i, "Cor deve ser um código hex válido"),
 });
 
 type LabelFormValues = z.infer<typeof labelSchema>;
@@ -59,7 +61,11 @@ const colorOptions = [
   "#f43f5e", // Rose
 ];
 
-export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDialogProps) {
+export function ManageLabelsDialog({
+  boardId,
+  labels,
+  trigger,
+}: ManageLabelsDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [editingLabel, setEditingLabel] = useState<LabelData | null>(null);
@@ -90,15 +96,19 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
     }
 
     startTransition(async () => {
-      const id = toast.loading(editingLabel ? "Atualizando label..." : "Criando label...");
-      
-      const res = editingLabel 
+      const id = toast.loading(
+        editingLabel ? "Atualizando label..." : "Criando label..."
+      );
+
+      const res = editingLabel
         ? await updateLabel({ ok: false }, formData)
         : await createLabel({ ok: false }, formData);
 
       if (res?.ok) {
         toast.success(
-          editingLabel ? "Label atualizada com sucesso!" : "Label criada com sucesso!", 
+          editingLabel
+            ? "Label atualizada com sucesso!"
+            : "Label criada com sucesso!",
           { id }
         );
         setOpen(false);
@@ -130,7 +140,7 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
     startTransition(async () => {
       const id = toast.loading("Excluindo label...");
       const res = await deleteLabel({ ok: false }, formData);
-      
+
       if (res?.ok) {
         toast.success("Label excluída com sucesso!", { id });
         router.refresh();
@@ -165,7 +175,7 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
             <h3 className="text-lg font-medium">
               {editingLabel ? "Editar Label" : "Criar Nova Label"}
             </h3>
-            
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome</Label>
@@ -176,7 +186,9 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
                   {...register("name")}
                 />
                 {errors.name && (
-                  <p className="text-xs text-destructive">{errors.name.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
@@ -187,9 +199,9 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
                     <button
                       key={color}
                       type="button"
-                      className={`w-8 h-8 rounded-full border-2 transition-all ${
-                        selectedColor === color 
-                          ? "border-gray-800 scale-110" 
+                      className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${
+                        selectedColor === color
+                          ? "border-gray-800 scale-110"
                           : "border-gray-300 hover:scale-105"
                       }`}
                       style={{ backgroundColor: color }}
@@ -204,7 +216,9 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
                   {...register("color")}
                 />
                 {errors.color && (
-                  <p className="text-xs text-destructive">{errors.color.message}</p>
+                  <p className="text-xs text-destructive">
+                    {errors.color.message}
+                  </p>
                 )}
               </div>
 
@@ -231,10 +245,9 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
             </form>
           </div>
 
-          {/* Lista de labels existentes */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Labels Existentes</h3>
-            
+
             {labels.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">
                 Nenhuma label criada ainda.
@@ -262,7 +275,7 @@ export function ManageLabelsDialog({ boardId, labels, trigger }: ManageLabelsDia
                         {label.name}
                       </Badge>
                     </div>
-                    
+
                     <div className="flex gap-2">
                       <Button
                         type="button"
