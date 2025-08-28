@@ -2,7 +2,7 @@
 
 ![cover](./public/readme/cover.png)
 
-**Demo:** https://SEU-LINK-DEMO.vercel.app  
+**Demo:** https://collabboardoficial.vercel.app
 **Stack:** Next.js (App Router) · TypeScript · Prisma · PostgreSQL (Neon) · shadcn/ui · Tailwind · NextAuth · @dnd-kit · Sonner
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge)](https://nextjs.org/)
