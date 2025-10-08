@@ -170,6 +170,6 @@ MIT — veja [LICENSE](./LICENSE)
 ## 🙌 Autor
 
 **Thiago Martins** — 
-- **LinkedIn:** [Thiago Martins](https://www.linkedin.com/in/thiago-martins-5556512b6)]
+- **LinkedIn:** [Thiago Martins](https://www.linkedin.com/in/thiago-martins-5556512b6)
 - **Portfólio:** [ainda vou incluir]
-- **Github:** [Thiago-Martins05]((https://github.com/Thiago-Martins05))
+- **Github:** [Thiago-Martins05](https://github.com/Thiago-Martins05)
